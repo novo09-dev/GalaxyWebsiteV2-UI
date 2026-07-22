@@ -7,7 +7,7 @@ import os, logging, uuid, hmac, hashlib, secrets, jwt, bcrypt
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Any, Dict
-from datetime import datetime, timezone, timedelta, date, time as dtime
+from datetime import datetime, timezone, timedelta, time as dtime
 from bson import ObjectId
 
 ROOT_DIR = Path(__file__).parent

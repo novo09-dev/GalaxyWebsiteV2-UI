@@ -79,7 +79,7 @@ function DatePicker({ value, onChange }) {
     for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
     return cells;
   }, [ref]);
-  const fmt = (d) => d.toISOString().slice(0, 10);
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   return (
     <div>
