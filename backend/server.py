@@ -882,7 +882,9 @@ async def cal_status(admin=Depends(get_current_admin)):
 
 
 @api.get("/admin/calendar/connect")
-async def cal_connect(request: Request, token: str, redirect_to: Optional[str] = None):
+async def cal_connect(request: Request, token: Optional[str] = None, redirect_to: Optional[str] = None):
+    if not token:
+        raise HTTPException(401, "Missing token")
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
         if payload.get("role") != "admin":

@@ -28,6 +28,16 @@ Editorial dark aesthetic — 85% matte black, 12% white/soft gray, 3% deep crims
 - **Booking wizard** — 8-step: Category → Service (grouped by group) → Professional (or First Available) → Date (custom calendar) → Time (dynamic slots) → Customer Details → Review + policy accept → Payment (mock) → Confirmation w/ booking code (e.g. `GXATYUZ5`)
 - **Admin app** — Login, sidebar layout, Dashboard KPIs + recent + popular, Bookings table (search/filter/status), Services CRUD, Employees CRUD, Customers CRM view, Content (Hero/Gallery/Testimonials/FAQs) CRUD, Business Settings
 
+## Implemented (Phase 2 — Feb 2026)
+### Google Calendar Sync
+- Owner connects Google once via OAuth (button in Admin Settings → Google Calendar panel)
+- Endpoints: `GET /api/admin/calendar/status`, `GET /connect`, `GET /callback`, `POST /disconnect`, `GET /test`
+- Employee record gets optional `google_calendar_id` (defaults to owner's `primary`)
+- On booking confirmation → Google event auto-created (summary = service — customer, description includes booking code, deposit paid, balance due, notes; Asia/Kolkata timezone)
+- On booking cancellation → event deleted; booking cleaned up
+- Graceful degradation: bookings work end-to-end even when Google is not connected
+- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars — currently empty (owner will paste later)
+
 ## User Personas
 - **Owner / Admin** — manages every aspect of the business without touching code
 - **Customer** — walk-in intent user who converts to online booking with deposit
