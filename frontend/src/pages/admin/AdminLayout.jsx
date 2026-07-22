@@ -29,9 +29,12 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-[#0A0A0A] flex" data-testid="admin-layout">
       <aside className="w-64 border-r border-[#1a1a1a] p-6 hidden md:flex flex-col justify-between">
         <div>
-          <Link to="/" className="flex items-center gap-3 mb-10">
-            <span className="w-9 h-9 rounded-full bg-[#B91C1C] flex items-center justify-center font-display text-white">G</span>
-            <span className="font-display tracking-[0.32em] text-sm">GALAXY</span>
+          <Link to="/" className="flex items-center mb-10">
+            <img
+              src="https://customer-assets-v7afamib.emergentagent.net/job_appointment-hub-969/artifacts/9d3zwini_Brand%20logo.png"
+              alt="Galaxy"
+              className="h-14 w-auto"
+            />
           </Link>
           <nav className="space-y-1">
             {ITEMS.map((it) => (

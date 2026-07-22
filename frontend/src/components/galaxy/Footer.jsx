@@ -7,9 +7,12 @@ export default function Footer({ business }) {
     <footer className="border-t border-[#1a1a1a] bg-[#0A0A0A]" data-testid="site-footer">
       <div className="gx-container py-16 grid grid-cols-1 md:grid-cols-4 gap-10">
         <div className="md:col-span-2">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="w-9 h-9 rounded-full bg-[#B91C1C] flex items-center justify-center font-display text-white">G</span>
-            <span className="font-display tracking-[0.35em] text-sm">GALAXY</span>
+          <div className="mb-4">
+            <img
+              src="https://customer-assets-v7afamib.emergentagent.net/job_appointment-hub-969/artifacts/9d3zwini_Brand%20logo.png"
+              alt="Galaxy — Hair · Beauty · Style"
+              className="h-16 w-auto"
+            />
           </div>
           <p className="text-[#8F8F8F] max-w-md leading-relaxed text-sm">
             {b.about || "A unisex Hair, Beauty & Style studio. Expertise, hygiene and genuine care — always."}

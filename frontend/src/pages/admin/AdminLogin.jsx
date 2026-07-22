@@ -27,9 +27,12 @@ export default function AdminLogin() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]" data-testid="admin-login-page">
       <div className="w-full max-w-md p-8">
-        <Link to="/" className="flex items-center gap-3 mb-10 justify-center">
-          <span className="w-10 h-10 rounded-full bg-[#B91C1C] flex items-center justify-center font-display text-white">G</span>
-          <span className="font-display tracking-[0.35em]">GALAXY</span>
+        <Link to="/" className="flex items-center justify-center mb-10">
+          <img
+            src="https://customer-assets-v7afamib.emergentagent.net/job_appointment-hub-969/artifacts/9d3zwini_Brand%20logo.png"
+            alt="Galaxy — Hair · Beauty · Style"
+            className="h-20 w-auto"
+          />
         </Link>
         <div className="gx-card p-8">
           <p className="eyebrow mb-2">Admin</p>

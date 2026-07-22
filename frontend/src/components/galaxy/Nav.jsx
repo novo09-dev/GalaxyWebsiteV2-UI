@@ -31,8 +31,11 @@ export default function Nav() {
     >
       <div className="gx-container flex items-center justify-between h-20">
         <Link to="/" data-testid="nav-logo" className="flex items-center gap-3">
-          <span className="w-9 h-9 rounded-full bg-[#B91C1C] flex items-center justify-center font-display text-white text-lg">G</span>
-          <span className="font-display tracking-[0.35em] text-sm">GALAXY</span>
+          <img
+            src="https://customer-assets-v7afamib.emergentagent.net/job_appointment-hub-969/artifacts/9d3zwini_Brand%20logo.png"
+            alt="Galaxy — Hair · Beauty · Style"
+            className="h-12 md:h-14 w-auto"
+          />
         </Link>
 
         <nav className="hidden lg:flex items-center gap-8" aria-label="Primary">
