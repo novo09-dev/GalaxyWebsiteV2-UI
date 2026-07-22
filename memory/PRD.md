@@ -38,6 +38,15 @@ Editorial dark aesthetic — 85% matte black, 12% white/soft gray, 3% deep crims
 - Graceful degradation: bookings work end-to-end even when Google is not connected
 - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` env vars — currently empty (owner will paste later)
 
+### Reschedule Sync
+- New endpoint: `POST /api/admin/bookings/{id}/reschedule` with `{date, start_time, employee_id?}`
+- Validates: past date, employee working hours, employee leave, and slot conflicts (excludes itself)
+- Recomputes `end_time` from service duration; can move to a different stylist
+- Google event auto-updated: patched on same stylist / re-created on new stylist / created on-the-fly if Google was connected after booking
+- Admin Bookings table adds a Reschedule action per row (disabled for cancelled/completed); opens a modal with stylist + date + slot picker
+- `● red dot` next to booking code indicates a live Google-synced event
+- Verified: 79/79 tests pass (14 new reschedule + 15 calendar + 50 core)
+
 ## User Personas
 - **Owner / Admin** — manages every aspect of the business without touching code
 - **Customer** — walk-in intent user who converts to online booking with deposit
