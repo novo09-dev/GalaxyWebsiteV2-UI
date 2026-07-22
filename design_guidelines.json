@@ -1,0 +1,127 @@
+{
+  "theme": "dark",
+  "design_philosophy": "Premium, Modern, Minimal, Calm, Professional, Timeless, Confident editorial aesthetic. Feel like ONE seamless product across Marketing, Booking, and Admin Dashboard.",
+  "avoid": [
+    "Flashy UI",
+    "Heavy Gradients",
+    "Glassmorphism",
+    "Neumorphism",
+    "Gaming interfaces",
+    "Aggressive animations"
+  ],
+  "colors": {
+    "primary": "#8C1111", 
+    "background_dominant": "#0A0A0A",
+    "background_secondary": "#1A1A1A",
+    "background_tertiary": "#242424",
+    "text_primary": "#F5F5F5",
+    "text_secondary": "#A1A1A1",
+    "accent_red": "#8C1111",
+    "border": "#2C2C2C",
+    "system_rules": "85% Matte Black / Charcoal / Dark Gray, 12% White / Soft Gray, 3% Deep Crimson Red. Red reserved ONLY for Primary CTA, Booking Progress, Hover States, Selected Nav, Important Actions — NEVER red-dominant layouts."
+  },
+  "typography": {
+    "font_family": "Cabinet Grotesk, sans-serif",
+    "secondary_font_family": "Cabinet Grotesk, sans-serif",
+    "headings": {
+      "style": "Large editorial headings, geometric, modern",
+      "h1": "text-5xl sm:text-6xl tracking-tighter font-medium",
+      "h2": "text-4xl sm:text-5xl tracking-tight font-medium",
+      "h3": "text-2xl sm:text-3xl tracking-tight font-medium"
+    },
+    "body": "text-base text-gray-300 leading-relaxed font-light",
+    "labels": "text-xs tracking-[0.2em] uppercase text-gray-400 font-medium"
+  },
+  "spacing_and_layout": {
+    "system": "8-point scale (Tailwind default), but use 2-3x generous whitespace. Containers padded well.",
+    "section_padding": "py-24 md:py-32",
+    "container_max_width": "max-w-7xl mx-auto px-6 md:px-12",
+    "grid_system": "Bento-style asymmetry for featured areas, structured dense grid for Admin.",
+    "alignment": "Optical alignment, text mostly left-aligned for clear reading flow. Editorial asymmetry used in marketing pages."
+  },
+  "surfaces_and_components": {
+    "card": "Flat, sharp edges or max 4px radius. 1px subtle border (#2C2C2C). NO heavy drop shadows. Hover: subtle lift (-translate-y-1) and slightly lighter border.",
+    "button": "Sharp or minimal rounding (rounded-sm). Primary: Matte Red background with white text. Secondary: Transparent with 1px border. Focus/Active states must maintain high contrast.",
+    "navigation": "Sticky nav. Solid dark background (#0A0A0A) or extremely subtle blur with 95% opacity. Red CTA button.",
+    "booking_wizard": "Dedicated page. Progress bar with thin red indicator. Clean step-by-step layout without clutter. Summary on the side or bottom. Razorpay payment step.",
+    "admin_dashboard": "Dark editorial layout (not SaaS light). Dense structured grids for tables, clean sidebar, typography focused KPI cards."
+  },
+  "motion": {
+    "philosophy": "Subtle, professional, calm.",
+    "rules": [
+      "No aggressive parallax or bouncy springs.",
+      "Smooth fades (opacity) and slight transforms (y-axis translation) on scroll.",
+      "Hover states: quick transition (150ms-200ms ease) on buttons and cards."
+    ]
+  },
+  "pages": {
+    "marketing": [
+      "Nav",
+      "Hero (cinematic multi-slide: Welcome, Precision, Transformation, Confidence)",
+      "Why Choose",
+      "Featured Services",
+      "Team",
+      "Gallery",
+      "Testimonials",
+      "FAQ",
+      "Contact",
+      "Footer"
+    ],
+    "booking": [
+      "Category -> Service -> Professional -> Date -> Time -> Customer Details -> Review -> Payment -> Confirmation"
+    ],
+    "admin": [
+      "Home Overview",
+      "Bookings",
+      "Calendar",
+      "Customers CRM",
+      "Employees",
+      "Services",
+      "Content Management",
+      "Analytics",
+      "Settings"
+    ]
+  },
+  "images": {
+    "logo": "https://customer-assets-lxgj4vgw.emergentagent.net/job_636f27c9-ed0a-4ab5-8897-07071921a410/...",
+    "hero_slides": [
+      "https://images.pexels.com/photos/7195803/pexels-photo-7195803.jpeg",
+      "https://images.pexels.com/photos/8867400/pexels-photo-8867400.jpeg",
+      "https://images.pexels.com/photos/37229298/pexels-photo-37229298.jpeg",
+      "https://images.unsplash.com/photo-1562322140-8baeececf3df?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb"
+    ],
+    "services": [
+      "https://images.pexels.com/photos/20092122/pexels-photo-20092122.jpeg",
+      "https://images.unsplash.com/photo-1647140655214-e4a2d914971f?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb",
+      "https://images.unsplash.com/photo-1643684391140-c5056cfd3436?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb"
+    ],
+    "team": [
+      "https://images.unsplash.com/photo-1764971591006-b6eb67a8f0cb?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb",
+      "https://images.unsplash.com/photo-1609436132311-e4b0c9370469?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb",
+      "https://images.unsplash.com/photo-1595475716260-0f2c35f5a40f?ixlib=rb-4.1.0&q=85&fm=jpg&crop=entropy&cs=srgb"
+    ],
+    "gallery": [
+      "https://images.pexels.com/photos/35844833/pexels-photo-35844833.png",
+      "https://images.pexels.com/photos/32329619/pexels-photo-32329619.jpeg",
+      "https://images.pexels.com/photos/9992819/pexels-photo-9992819.jpeg"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install `lucide-react` for icons if needed, and `framer-motion` for subtle animations.",
+    "Apply `data-testid` to all interactive elements for robust testing.",
+    "Do not use generic SaaS look (no standard white boxes with drop shadows). Always maintain the matte black base with deep charcoal sections.",
+    "Use raw HTML/Tailwind for marketing layout. For admin/forms, use Shadcn but stripped of 'Vercel-look' borders/shadows to match editorial theme.",
+    "Use standard semantic HTML5 tags.",
+    "Use Shadcn form, inputs, and tables for Admin dashboard and Booking flow.",
+    "Ensure high contrast WCAG AA compliance across text against dark backgrounds.",
+    "Admin layout should feel luxurious but functional, not cluttered."
+  ],
+  "universal_guidelines": [
+    "Avoid generic 'AI slop' aesthetics. No center-everything layouts.",
+    "Create depth using layered matte tones instead of bright gradients.",
+    "NEVER use fully transparent backgrounds on headers that scroll over content.",
+    "Never apply universal transition like `transition: all`.",
+    "Ensure components are reused effectively.",
+    "No emojis for icons."
+  ]
+}
