@@ -34,6 +34,7 @@ export const adminMe = () => api.get("/admin/me").then((r) => r.data);
 export const adminStats = () => api.get("/admin/stats").then((r) => r.data);
 export const adminBookings = (params) => api.get("/admin/bookings", { params }).then((r) => r.data);
 export const adminUpdateBooking = (id, body) => api.patch(`/admin/bookings/${id}`, body).then((r) => r.data);
+export const adminRescheduleBooking = (id, body) => api.post(`/admin/bookings/${id}/reschedule`, body).then((r) => r.data);
 export const adminCustomers = () => api.get("/admin/customers").then((r) => r.data);
 export const adminBusiness = () => api.get("/admin/business").then((r) => r.data);
 export const adminUpdateBusiness = (body) => api.patch("/admin/business", body).then((r) => r.data);

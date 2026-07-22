@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 3 focused on the new Reschedule Sync feature. Added /app/backend/tests/test_reschedule.py with 14 tests covering the full POST /api/admin/bookings/{id}/reschedule contract: happy paths (same-slot no-op, new-time end_time recompute, employee swap with employee_name update), validation (401 no-token, 404 unknown booking, 400 past date, 400 outside working hours, 400 employee-on-leave via PATCH /admin/employees, 409 conflicts on same stylist, 400 cancelled booking), and Google-off graceful skip (calendar_synced=false, and /admin/calendar/status still reports env_configured=false). All 14 new tests pass PLUS all 65 pre-existing tests (test_galaxy_api.py + test_calendar_integration.py) — full suite is 79/79 green. Frontend UI verified with Playwright on /admin/bookings: Actions column present, 24 enabled + 7 disabled (cancelled/completed) Reschedule buttons, modal opens with pre-filled stylist+date+booking meta, slot grid renders from /availability, clicking a slot then 'Confirm Reschedule' calls POST /reschedule, modal closes, toast 'Rescheduled' shown, and the table row is refreshed with the new date (2026-07-31) and start_time (13:30). The 'no slots available' red hint code path is confirmed in the JSX (renders when slots.length===0).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_reschedule.py",
+    "/app/backend/tests/test_galaxy_api.py",
+    "/app/backend/tests/test_calendar_integration.py",
+    "/app/test_reports/pytest/reschedule_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py:857 conflict check runs AFTER working-hours / leave checks — good. The exclusion of the booking itself via {'id': {'$ne': booking_id}} correctly enables 'same-slot no-op' reschedules. Verified.",
+    "server.py:897 elif branch tries to CREATE a Google event when the booking is 'confirmed' but has no prior event — this is a nice 'connected-after-booking' upgrade path. When Google is off, gcal.create_event_for_booking returns None and calendar_synced stays False (verified by test_calendar_synced_false_when_google_off).",
+    "AdminBookings.jsx:37 adminRescheduleBooking(...) uses e?.response?.data?.detail for toast — good UX. However any non-4xx unexpected error would fall through to 'Failed to reschedule' generic — acceptable.",
+    "AdminBookings.jsx:66 date input has min={today} — protects users but does NOT prevent past-date submission if bypassed. Backend validation (400 past date) is the real guard, which is verified.",
+    "AdminBookings.jsx:27 the modal manually re-adds booking.start_time to the slot set when employee+date are unchanged — this makes the 'same slot' UX work but is a small state-syncing hack. Backend already excludes the booking itself in the conflict check, so this front-end line is only a UI convenience, not correctness-critical.",
+    "gcal.py graceful-skip pattern (returns None/False when env or tokens missing) is used consistently by reschedule — no regressions.",
+    "Prior nit from iteration 2 still stands: GET /api/admin/calendar/connect returns 422 when token is missing instead of 401. Out of scope for this iteration but worth eventually declaring token: Optional[str] and raising 401 explicitly."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_reschedule.py (new — 14 tests)"
+  ],
+  "success_rate": {"backend": "100% (79/79)", "frontend": "100% of reschedule flow"},
+  "test_credentials": "Admin: admin@galaxy.salon / Galaxy@2025 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created ~11 TEST_Resched Cust + TEST_Conflict A/B bookings on future dates 2026-07-27..2026-08-09 via public /api/bookings; one becomes cancelled; one becomes paid+confirmed to exercise Google-off skip. No teardown was performed — safe because bookings are in the future and use TEST_ customer prefix.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Full suite: `cd /app && python -m pytest backend/tests/ -v --tb=short -n 0 --junitxml=/app/test_reports/pytest/pytest_results.xml`. Three test files: test_galaxy_api.py (50), test_calendar_integration.py (15), test_reschedule.py (14) → 79 total. Reschedule endpoint spec: POST /api/admin/bookings/{id}/reschedule body {date, start_time, employee_id?} returns {booking, calendar_synced}. UI data-testids on /admin/bookings: btn-reschedule-<id>, reschedule-modal, resched-employee, resched-date, resched-slot-<HHMM>, resched-save. Google Calendar env vars (GOOGLE_CLIENT_ID/SECRET) remain intentionally empty — do not populate or graceful-skip assertions will change.",
+  "rca of the issue": "No open bugs. Reschedule feature — backend and frontend both work end-to-end."
+}

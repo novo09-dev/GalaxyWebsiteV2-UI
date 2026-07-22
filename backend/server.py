@@ -812,6 +812,104 @@ async def admin_update_booking(booking_id: str, body: Dict[str, Any], admin=Depe
     return await db.bookings.find_one({"id": booking_id}, {"_id": 0})
 
 
+class RescheduleBody(BaseModel):
+    date: str
+    start_time: str
+    employee_id: Optional[str] = None  # optional stylist change
+
+
+@api.post("/admin/bookings/{booking_id}/reschedule")
+async def admin_reschedule_booking(booking_id: str, body: RescheduleBody, admin=Depends(get_current_admin)):
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(404, "Booking not found")
+    if booking.get("status") == "cancelled":
+        raise HTTPException(400, "Cancelled bookings cannot be rescheduled")
+
+    try:
+        target_date = datetime.strptime(body.date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(400, "Invalid date")
+
+    today_ist = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    if target_date < today_ist:
+        raise HTTPException(400, "Cannot reschedule to a past date")
+
+    new_emp_id = body.employee_id or booking["employee_id"]
+    emp = await db.employees.find_one({"id": new_emp_id, "active": True}, {"_id": 0})
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+
+    duration = int(booking["duration"])
+    start_m = _minutes(body.start_time)
+    end_m = start_m + duration
+
+    # Validate within employee working hours
+    weekday = target_date.weekday()
+    wh = next((w for w in emp.get("working_hours", []) if w["day"] == weekday and w.get("open", True)), None)
+    if not wh:
+        raise HTTPException(400, "Employee is not working on this day")
+    if start_m < _minutes(wh["start"]) or end_m > _minutes(wh["end"]):
+        raise HTTPException(400, "Time is outside employee working hours")
+    if body.date in (emp.get("leaves") or []):
+        raise HTTPException(400, "Employee is on leave that day")
+
+    # Conflict check (exclude this booking itself)
+    existing = await db.bookings.find({
+        "employee_id": new_emp_id,
+        "date": body.date,
+        "status": {"$in": ["pending", "confirmed"]},
+        "id": {"$ne": booking_id},
+    }, {"_id": 0, "start_time": 1, "end_time": 1}).to_list(500)
+    for b in existing:
+        bs = _minutes(b["start_time"]); be = _minutes(b["end_time"])
+        if not (end_m <= bs or start_m >= be):
+            raise HTTPException(409, "That time overlaps an existing booking")
+
+    new_end = _hhmm(end_m)
+    new_values = {
+        "date": body.date,
+        "start_time": body.start_time,
+        "end_time": new_end,
+        "employee_id": new_emp_id,
+        "employee_name": emp["name"],
+    }
+    await db.bookings.update_one({"id": booking_id}, {"$set": new_values})
+    fresh = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+
+    # Calendar sync
+    calendar_synced = False
+    if fresh.get("google_event_id") and fresh.get("google_calendar_id"):
+        emp_changed = booking["employee_id"] != new_emp_id
+        if emp_changed:
+            # Stylist changed → delete on old calendar, create fresh event on new stylist's calendar
+            await gcal.delete_event(db, fresh["google_calendar_id"], fresh["google_event_id"])
+            new_cal = emp.get("google_calendar_id") or None
+            ev = await gcal.create_event_for_booking(db, fresh, new_cal)
+            if ev:
+                await db.bookings.update_one({"id": booking_id}, {"$set": {
+                    "google_event_id": ev["event_id"],
+                    "google_calendar_id": ev["calendar_id"],
+                }})
+                calendar_synced = True
+        else:
+            calendar_synced = await gcal.patch_event(db, fresh["google_calendar_id"], fresh["google_event_id"], fresh)
+    elif fresh.get("status") == "confirmed":
+        # Booking was confirmed but no event yet (e.g., Google was connected after booking) — try to create now.
+        new_cal = emp.get("google_calendar_id") or None
+        ev = await gcal.create_event_for_booking(db, fresh, new_cal)
+        if ev:
+            await db.bookings.update_one({"id": booking_id}, {"$set": {
+                "google_event_id": ev["event_id"],
+                "google_calendar_id": ev["calendar_id"],
+            }})
+            calendar_synced = True
+
+    result = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    return {"booking": result, "calendar_synced": calendar_synced}
+
+
+
 def _make_admin_crud(collection: str, path: str):
     @api.get(f"/admin/{path}")
     async def _list(admin=Depends(get_current_admin)):
