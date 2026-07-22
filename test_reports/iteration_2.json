@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 2 focused on the new Google Calendar sync feature (env unconfigured on purpose). Added /app/backend/tests/test_calendar_integration.py with 15 tests: covers /api/admin/calendar/{status,connect,callback,disconnect,test} (auth + unconfigured-env behaviour), Employee model google_calendar_id CRUD (POST/GET/PATCH/DELETE), and full booking flow regression proving that POST /api/bookings → POST /api/payments/verify still returns success with status='confirmed' and NO google_event_id / google_calendar_id when GOOGLE_CLIENT_ID/SECRET are empty, plus PATCH /api/admin/bookings/{id} status='cancelled' works without a google_event_id. All 15 new tests + all 50 pre-existing tests pass (65/65). Frontend: /admin/settings renders the 'Google Calendar' panel with the 'NOT CONNECTED' chip, the red hint about GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET, and the red 'Connect Google Calendar' button in disabled state (is_disabled=True); /admin/employees form editor exposes the new 'GOOGLE CALENDAR ID (OPTIONAL)' input with placeholder 'e.g. stylist@gmail.com or primary'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/calendar/connect (no token)", "issue": "Returns 422 (FastAPI missing-query-param) instead of the 401 mentioned in the review request. Not a real security gap because with a token the JWT decode fails with 401, but if 401 is contractual for the UI/spec you may want to declare token: Optional[str] and raise HTTPException(401) explicitly."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_calendar_integration.py",
+    "/app/backend/tests/test_galaxy_api.py",
+    "/app/test_reports/pytest/calendar_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Make GET /api/admin/calendar/connect return 401 (not 422) when token query param is missing, to align with the review spec.",
+    "(Optional) Consider stripping google_event_id/google_calendar_id from the /api/payments/verify response payload only if you want strict absence — currently the fields simply do not exist on the doc when integration is off, which is already correct."
+  ],
+  "critical_code_review_comments": [
+    "server.py:885 cal_connect declares token as required. Missing token yields 422 (FastAPI validation), not 401. Consider `token: Optional[str] = None` + explicit 401 to match auth semantics.",
+    "server.py:697 verify_payment always calls gcal.create_event_for_booking on every successful mock payment. It correctly short-circuits inside get_service() when env is unset, but each mock booking still triggers an awaitable + DB read of settings. Fine for now; consider a fast env-check gate before the extra DB round-trip.",
+    "server.py:808 admin_update_booking deletes the calendar event when status transitions to 'cancelled' — but there is no equivalent handling on reschedule (start_time/date change). If reschedule is added later, remember to call gcal.patch_event.",
+    "gcal.py:141 create_event_for_booking assumes booking has customer_phone/email/notes/booking_code/employee_name/service_name/duration/deposit/balance — matches current schema but is fragile to future field changes. Consider using .get() with sensible defaults instead of direct indexing on optional fields.",
+    "gcal.py:52 uses requests.utils.quote inside an f-string join to build the OAuth URL manually; safer to use urllib.parse.urlencode which is the standard for query strings.",
+    "gcal.py:24 SCOPES = ['.../calendar'] but build_auth_url also appends ' openid email' — mixing scopes as a joined string works but is easy to break; keep as a list and join once."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_calendar_integration.py (new)"
+  ],
+  "success_rate": {"backend": "100% (65/65 across 2 test files)", "frontend": "100% of critical Calendar-panel + Employee-form flows"},
+  "test_credentials": "Admin: admin@galaxy.salon / Galaxy@2025 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "One additional TEST_ booking (customer +919999900077 -> cancelled) and a transient TEST_CalEmp employee created & deleted in the same run. No leftover employees.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run all backend tests serially: `cd /app && python -m pytest backend/tests/ -v --tb=short -n 0 --junitxml=/app/test_reports/pytest/pytest_results.xml`. Two files exist: test_galaxy_api.py (50 regressions) and test_calendar_integration.py (15 calendar tests). GOOGLE_CLIENT_ID/SECRET are intentionally empty in /app/backend/.env; do not populate them or the graceful-skip assertions will change. UI data-testids: calendar-panel, cal-connect, cal-test, cal-disconnect. Note the admin login button has no type='submit'; use get_by_role('button', name='Sign in').",
+  "rca of the issue": "No open bugs. Only nit: cal_connect returns 422 instead of 401 for missing token because token is declared as a required query param; the spec asked for 401. This is a small FastAPI signature choice, not a real vulnerability."
+}

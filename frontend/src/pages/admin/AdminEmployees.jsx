@@ -17,7 +17,7 @@ export default function AdminEmployees() {
     toast.success("Saved"); setEditing(null); load();
   };
   const remove = async (id) => { if (!window.confirm("Delete?")) return; await adminDelete("employees", id); toast.success("Deleted"); load(); };
-  const addNew = () => setEditing({ name: "", position: "", specialty: "", bio: "", photo: "", rating: 4.8, active: true, order: 999, working_hours: [0,1,2,3,4,5,6].map((d) => ({ day: d, start: "10:00", end: "20:00", open: true })), leaves: [], service_ids: [] });
+  const addNew = () => setEditing({ name: "", position: "", specialty: "", bio: "", photo: "", rating: 4.8, google_calendar_id: "", active: true, order: 999, working_hours: [0,1,2,3,4,5,6].map((d) => ({ day: d, start: "10:00", end: "20:00", open: true })), leaves: [], service_ids: [] });
 
   return (
     <div data-testid="admin-employees">
@@ -34,6 +34,7 @@ export default function AdminEmployees() {
             <Field label="Specialty"><input className="input" value={editing.specialty} onChange={(e) => setEditing({ ...editing, specialty: e.target.value })} /></Field>
             <Field label="Rating"><input type="number" step="0.1" className="input" value={editing.rating} onChange={(e) => setEditing({ ...editing, rating: parseFloat(e.target.value) })} /></Field>
             <Field label="Photo URL"><input className="input" value={editing.photo} onChange={(e) => setEditing({ ...editing, photo: e.target.value })} /></Field>
+            <Field label="Google Calendar ID (optional)"><input placeholder="e.g. stylist@gmail.com or primary" className="input" value={editing.google_calendar_id || ""} onChange={(e) => setEditing({ ...editing, google_calendar_id: e.target.value })} /></Field>
             <Field label="Bio"><textarea rows={3} className="input" value={editing.bio} onChange={(e) => setEditing({ ...editing, bio: e.target.value })} /></Field>
           </div>
           <div className="flex gap-3 mt-6">

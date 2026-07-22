@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header, Query, Request
+from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.security import HTTPBearer
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -9,6 +10,8 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Any, Dict
 from datetime import datetime, timezone, timedelta, time as dtime
 from bson import ObjectId
+
+import gcal
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -115,6 +118,7 @@ class Employee(BaseModel):
     working_hours: List[WorkingHours] = []
     leaves: List[str] = []  # ISO date strings YYYY-MM-DD
     service_ids: List[str] = []  # empty = all
+    google_calendar_id: str = ""  # empty = owner's primary calendar
     active: bool = True
     order: int = 0
 
@@ -154,6 +158,8 @@ class Booking(BaseModel):
     status: str = "pending"  # pending, confirmed, completed, cancelled, no_show
     payment_status: str = "unpaid"  # unpaid, paid, refunded
     payment_id: Optional[str] = None
+    google_event_id: Optional[str] = None
+    google_calendar_id: Optional[str] = None
     created_at: str = Field(default_factory=now_iso)
 
 
@@ -684,6 +690,17 @@ async def verify_payment(body: PaymentVerify):
     # update customer aggregates
     await db.customers.update_one({"id": booking["customer_id"]}, {"$inc": {"total_visits": 1, "lifetime_spend": booking["deposit"]}, "$set": {"last_visit": booking["date"]}})
 
+    # Push to Google Calendar (best-effort, non-blocking failure)
+    emp = await db.employees.find_one({"id": booking["employee_id"]}, {"_id": 0})
+    cal_id = (emp or {}).get("google_calendar_id") or None
+    fresh = await db.bookings.find_one({"id": body.booking_id}, {"_id": 0})
+    ev = await gcal.create_event_for_booking(db, fresh, cal_id)
+    if ev:
+        await db.bookings.update_one({"id": body.booking_id}, {"$set": {
+            "google_event_id": ev["event_id"],
+            "google_calendar_id": ev["calendar_id"],
+        }})
+
     updated = await db.bookings.find_one({"id": body.booking_id}, {"_id": 0})
     return {"success": True, "booking": updated}
 
@@ -782,7 +799,16 @@ async def admin_update_booking(booking_id: str, body: Dict[str, Any], admin=Depe
     upd = {k: v for k, v in body.items() if k in allowed}
     if not upd:
         raise HTTPException(400, "No valid fields")
+    prev = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
     await db.bookings.update_one({"id": booking_id}, {"$set": upd})
+    fresh = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+
+    # Calendar sync on cancellation
+    if prev and fresh and prev.get("status") != "cancelled" and fresh.get("status") == "cancelled":
+        if fresh.get("google_event_id") and fresh.get("google_calendar_id"):
+            await gcal.delete_event(db, fresh["google_calendar_id"], fresh["google_event_id"])
+            await db.bookings.update_one({"id": booking_id}, {"$unset": {"google_event_id": "", "google_calendar_id": ""}})
+
     return await db.bookings.find_one({"id": booking_id}, {"_id": 0})
 
 
@@ -836,6 +862,93 @@ async def admin_update_business(body: Dict[str, Any], admin=Depends(get_current_
     body.pop("_singleton", None)
     await db.business_info.update_one({"_singleton": True}, {"$set": body}, upsert=True)
     return await db.business_info.find_one({"_singleton": True}, {"_id": 0, "_singleton": 0})
+
+
+# ============================================================
+# Google Calendar (owner-connected OAuth)
+# ============================================================
+def _computed_redirect(request: Request) -> str:
+    base = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+    if not base:
+        proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+        base = f"{proto}://{host}"
+    return f"{base}/api/admin/calendar/callback"
+
+
+@api.get("/admin/calendar/status")
+async def cal_status(admin=Depends(get_current_admin)):
+    return await gcal.status(db)
+
+
+@api.get("/admin/calendar/connect")
+async def cal_connect(request: Request, token: str, redirect_to: Optional[str] = None):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        if payload.get("role") != "admin":
+            raise HTTPException(403, "Forbidden")
+    except jwt.PyJWTError:
+        raise HTTPException(401, "Invalid token")
+
+    if not (os.environ.get("GOOGLE_CLIENT_ID") and os.environ.get("GOOGLE_CLIENT_SECRET")):
+        raise HTTPException(400, "Google OAuth credentials not configured on the server.")
+
+    redirect = _computed_redirect(request)
+    state = secrets.token_urlsafe(24)
+    await db.settings.update_one(
+        {"key": "google_oauth_state"},
+        {"$set": {"key": "google_oauth_state", "state": state, "redirect_to": redirect_to or "/admin/settings", "created_at": now_iso()}},
+        upsert=True,
+    )
+    url = gcal.build_auth_url(state, redirect)
+    return RedirectResponse(url)
+
+
+@api.get("/admin/calendar/callback")
+async def cal_callback(request: Request, code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+    if error or not code:
+        return HTMLResponse(f"<h3>Google connection failed:</h3><p>{error or 'Missing code'}</p>", status_code=400)
+    doc = await db.settings.find_one({"key": "google_oauth_state"})
+    if not doc or doc.get("state") != state:
+        raise HTTPException(400, "Invalid state")
+
+    redirect = _computed_redirect(request)
+    try:
+        tokens = gcal.exchange_code(code, redirect)
+        info = gcal.fetch_userinfo(tokens["access_token"])
+    except Exception as e:
+        return HTMLResponse(f"<h3>Google token exchange failed:</h3><p>{e}</p>", status_code=400)
+
+    await db.settings.update_one(
+        {"key": "google_calendar"},
+        {"$set": {"key": "google_calendar", "tokens": tokens, "email": info.get("email")}},
+        upsert=True,
+    )
+    await db.settings.delete_one({"key": "google_oauth_state"})
+
+    dest = doc.get("redirect_to") or "/admin/settings"
+    return HTMLResponse(f"""
+      <html><body style="background:#0A0A0A;color:#F5F5F5;font-family:sans-serif;padding:40px;text-align:center">
+      <h2>Google Calendar Connected</h2>
+      <p>Signed in as <strong>{info.get('email')}</strong>. You can close this tab.</p>
+      <script>setTimeout(function(){{ window.location.href='{dest}?connected=1'; }}, 1200);</script>
+      </body></html>
+    """)
+
+
+@api.post("/admin/calendar/disconnect")
+async def cal_disconnect(admin=Depends(get_current_admin)):
+    await gcal.disconnect(db)
+    return {"ok": True}
+
+
+@api.get("/admin/calendar/test")
+async def cal_test(admin=Depends(get_current_admin), calendar_id: str = "primary"):
+    items = await gcal.list_upcoming(db, calendar_id)
+    if items is None:
+        raise HTTPException(400, "Not connected or calendar unavailable")
+    return {"calendar_id": calendar_id, "upcoming": [{"summary": i.get("summary"), "start": i.get("start"), "id": i.get("id")} for i in items]}
+
 
 
 app.include_router(api)
