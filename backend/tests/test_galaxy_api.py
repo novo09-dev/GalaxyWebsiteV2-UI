@@ -29,7 +29,12 @@ def client():
 
 @pytest.fixture(scope="session")
 def admin_token(client):
-    r = client.post(f"{API}/admin/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+    import time
+    for _ in range(15):
+        r = client.post(f"{API}/admin/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+        if r.status_code == 200:
+            return r.json()["token"]
+        time.sleep(0.5)
     if r.status_code != 200:
         pytest.skip(f"Admin login failed: {r.status_code} {r.text}")
     return r.json()["token"]

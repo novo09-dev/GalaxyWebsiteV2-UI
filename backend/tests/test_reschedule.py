@@ -34,9 +34,15 @@ def client():
 
 @pytest.fixture(scope="module")
 def admin_client(client):
-    r = client.post(f"{API}/admin/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
-    if r.status_code != 200:
-        pytest.skip(f"admin login failed {r.status_code}")
+    import time
+    r = None
+    for _ in range(15):
+        r = client.post(f"{API}/admin/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+        if r.status_code == 200:
+            break
+        time.sleep(0.5)
+    if r is None or r.status_code != 200:
+        pytest.skip(f"admin login failed {r.status_code if r else 'no-resp'}")
     token = r.json()["token"]
     s = requests.Session()
     s.headers.update({"Content-Type": "application/json", "Authorization": f"Bearer {token}"})

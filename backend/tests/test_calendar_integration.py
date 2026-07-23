@@ -25,7 +25,13 @@ def client():
 
 @pytest.fixture(scope="module")
 def admin_token(client):
-    r = client.post(f"{API}/admin/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+    # Retry briefly to survive concurrent password-mutation tests in other xdist workers.
+    import time
+    for _ in range(15):
+        r = client.post(f"{API}/admin/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+        if r.status_code == 200:
+            return r.json()["token"]
+        time.sleep(0.5)
     assert r.status_code == 200, r.text
     return r.json()["token"]
 

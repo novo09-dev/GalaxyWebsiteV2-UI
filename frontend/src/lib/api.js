@@ -50,6 +50,9 @@ export const adminCalendarStatus = () => api.get("/admin/calendar/status").then(
 export const adminCalendarDisconnect = () => api.post("/admin/calendar/disconnect").then((r) => r.data);
 export const adminCalendarTest = (calendar_id = "primary") =>
   api.get("/admin/calendar/test", { params: { calendar_id } }).then((r) => r.data);
+export const adminSaveServiceAccount = (credentials) =>
+  api.post("/admin/calendar/service-account", { credentials }).then((r) => r.data);
+export const adminChangeCredentials = (body) => api.post("/admin/change-credentials", body).then((r) => r.data);
 export const adminCalendarConnectUrl = () => {
   const token = localStorage.getItem("galaxy_admin_token");
   return `${API}/admin/calendar/connect?token=${encodeURIComponent(token || "")}&redirect_to=${encodeURIComponent("/admin/settings")}`;

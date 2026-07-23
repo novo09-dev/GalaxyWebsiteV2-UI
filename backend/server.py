@@ -565,6 +565,12 @@ async def availability(employee_id: str, service_id: str, date: str):
     }, {"_id": 0, "start_time": 1, "end_time": 1}).to_list(500)
     busy = [(_minutes(b["start_time"]), _minutes(b["end_time"])) for b in existing]
 
+    # Merge in Google Calendar busy intervals (if configured + employee has calendar id)
+    emp_cal = emp.get("google_calendar_id") or ""
+    if emp_cal:
+        google_busy = await gcal.busy_intervals(db, emp_cal, date)
+        busy.extend(google_busy)
+
     # If date is today, only show future slots (with 10-min buffer)
     now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)  # IST
     today_str = now.strftime("%Y-%m-%d")
@@ -1048,6 +1054,66 @@ async def cal_test(admin=Depends(get_current_admin), calendar_id: str = "primary
     if items is None:
         raise HTTPException(400, "Not connected or calendar unavailable")
     return {"calendar_id": calendar_id, "upcoming": [{"summary": i.get("summary"), "start": i.get("start"), "id": i.get("id")} for i in items]}
+
+
+
+# ---- Service Account (paste JSON) ----
+class SACredsBody(BaseModel):
+    credentials: Dict[str, Any]
+
+
+@api.post("/admin/calendar/service-account")
+async def cal_save_sa(body: SACredsBody, admin=Depends(get_current_admin)):
+    if not body.credentials or body.credentials.get("type") != "service_account":
+        raise HTTPException(400, "Invalid JSON — expected a Google service account key (type='service_account').")
+    if not body.credentials.get("client_email") or not body.credentials.get("private_key"):
+        raise HTTPException(400, "Service account JSON is missing client_email or private_key.")
+    email = await gcal.save_service_account(db, body.credentials)
+    if not email:
+        raise HTTPException(400, "Could not validate the service account JSON.")
+    return {"ok": True, "client_email": email}
+
+
+# ---- Admin credentials change ----
+class ChangeCredsBody(BaseModel):
+    current_password: str
+    new_email: Optional[str] = None
+    new_password: Optional[str] = None
+
+
+@api.post("/admin/change-credentials")
+async def admin_change_credentials(body: ChangeCredsBody, admin=Depends(get_current_admin)):
+    user = await db.users.find_one({"id": admin["sub"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(404, "User not found")
+    if not bcrypt.checkpw(body.current_password.encode(), user["password_hash"].encode()):
+        raise HTTPException(401, "Current password is incorrect")
+
+    upd: Dict[str, Any] = {}
+    new_email = (body.new_email or "").strip().lower()
+    new_password = (body.new_password or "").strip()
+
+    if new_email and new_email != user["email"]:
+        # Basic sanity check
+        if "@" not in new_email or "." not in new_email.split("@")[-1]:
+            raise HTTPException(400, "Please provide a valid email address")
+        # Check uniqueness
+        existing = await db.users.find_one({"email": new_email, "id": {"$ne": user["id"]}})
+        if existing:
+            raise HTTPException(409, "Email already in use")
+        upd["email"] = new_email
+
+    if new_password:
+        if len(new_password) < 8:
+            raise HTTPException(400, "New password must be at least 8 characters")
+        upd["password_hash"] = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+
+    if not upd:
+        raise HTTPException(400, "Nothing to change")
+
+    await db.users.update_one({"id": user["id"]}, {"$set": upd})
+    return {"ok": True, "email": upd.get("email", user["email"]), "password_changed": "password_hash" in upd}
+
 
 
 
