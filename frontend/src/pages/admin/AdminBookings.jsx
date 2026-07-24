@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { adminBookings, adminUpdateBooking, adminRescheduleBooking, adminList, getAvailability } from "../../lib/api";
 import { toast } from "sonner";
 import { Search, CalendarClock, X, CheckCircle2 } from "lucide-react";
@@ -99,15 +99,18 @@ export default function AdminBookings() {
   const [loading, setLoading] = useState(true);
   const [reschedule, setReschedule] = useState(null);
 
-  const load = async () => {
-    setLoading(true);
-    const params = {};
-    if (status !== "all") params.status = status;
-    if (q) params.q = q;
-    const r = await adminBookings(params);
-    setRows(r); setLoading(false);
-  };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [status]);
+ const load = useCallback(async () => {
+  setLoading(true);
+  const params = {};
+  if (status !== "all") params.status = status;
+  if (q) params.q = q;
+  const r = await adminBookings(params);
+  setRows(r);
+  setLoading(false);
+}, [status, q]);
+  useEffect(() => {
+  load();
+}, [load]);
 
   const changeStatus = async (id, s) => {
     await adminUpdateBooking(id, { status: s });

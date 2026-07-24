@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { adminList, adminCreate, adminUpdate, adminDelete } from "../../lib/api";
 import { toast } from "sonner";
 import { Plus, Trash2, Save } from "lucide-react";
@@ -16,8 +16,13 @@ export default function AdminContent() {
   const [editing, setEditing] = useState(null);
   const active = TABS.find((t) => t.key === tab);
 
-  const load = async () => setRows(await adminList(tab));
-  useEffect(() => { load(); setEditing(null); /* eslint-disable-next-line */ }, [tab]);
+  const load = useCallback(async () => {
+  setRows(await adminList(tab));
+}, [tab]);
+  useEffect(() => {
+  load();
+  setEditing(null);
+}, [load]);
 
   const save = async () => {
     const body = { ...editing };
