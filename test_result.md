@@ -160,15 +160,21 @@ frontend:
 
   - task: "Landing page — full editorial redesign (Hero, Marquee, Why, Services bento, Team, Booking banner, Gallery bento, Testimonials, FAQ, Contact)"
     implemented: true
-    working: "NA"
+    working: true
     file: "frontend/src/pages/Landing.jsx"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Rewrite of visual composition. All data still fed by existing APIs (getHeroSlides, getServices, getCategories, getEmployees, getGallery, getTestimonials, getFAQs, getBusiness). Contact map now uses business.address dynamically (no hardcoded query). Every original data-testid preserved: hero-section, hero-chapter, hero-headline, hero-book-cta, hero-dot-*, why-item-*, services-section, featured-service-*, services-view-all, team-section, team-member-*, gallery-section, gallery-item-*, lightbox, testimonials-section, testimonial-*, faq-section, faq-*, contact-section."
+      - working: "NA"
+        agent: "main"
+        comment: "BUG FIX (user reported): Gallery images were collapsing into thin horizontal strips on desktop/laptop viewports. Root cause identified — `md:auto-rows-[210px]` combined with pattern items using `md:col-span-2` produced tiles ~590–960px wide by only 210px tall (~2.8:1 to 4.5:1 aspect on 1440–1920 viewports). Fix: replaced with responsive `auto-rows-[180px] sm:auto-rows-[220px] md:auto-rows-[260px] lg:auto-rows-[300px] xl:auto-rows-[340px]` so row height scales with viewport, keeping 2-col landscape tiles at reasonable ~1.7:1 to ~2:1 ratios. Also removed the fixed `md:grid-rows-4` and added `md:grid-flow-row-dense` so the auto-placer fills gaps left by mixed spans. No design change — same bento pattern, same lightbox, same testids. Mobile layout untouched. Needs retesting to verify gallery renders correctly at 1280, 1440, 1920 laptop/desktop widths."
+      - working: true
+        agent: "testing"
+        comment: "VERIFIED ✓ Gallery desktop layout bug fix successful. Tested at three desktop viewports (1280×800, 1440×900, 1920×1080) and mobile (390×844). Desktop: All gallery tiles render with proper proportions — NO thin horizontal strips observed. The bento layout displays a pleasing mix of landscape (~1.5:1 to 2:1), portrait, and square tiles. Images fill tiles cleanly with object-cover, no distortion. The responsive row heights (260px at md, 300px at lg, 340px at xl) successfully prevent the thin-strip issue that occurred with the previous fixed 210px height. Mobile: 2-column grid layout unchanged and working correctly. Lightbox: All functionality verified working — click to open, close button, prev/next navigation all functional. Screenshots captured at all viewports confirm visual quality. Bug fix complete and effective."
 
   - task: "Booking wizard — restyle, state machine preserved"
     implemented: true
@@ -213,11 +219,7 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Landing page — full editorial redesign (Hero, Marquee, Why, Services bento, Team, Booking banner, Gallery bento, Testimonials, FAQ, Contact)"
-    - "Booking wizard — restyle, state machine preserved"
-    - "Booking confirmation redesigned"
-    - "Nav + Footer redesigned (shared shell)"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -257,3 +259,23 @@ agent_communication:
       touch). Screenshots verify hero, services bento, booking wizard with images, selected state,
       admin login, admin dashboard, admin bookings, admin settings all render as intended at 1280
       and 1440 viewports.
+
+  - agent: "testing"
+    message: |
+      Gallery desktop layout bug fix verification COMPLETE ✓
+      
+      Tested the reported bug fix across all requested viewports:
+      - Desktop 1280×800: PASS ✓
+      - Desktop 1440×900: PASS ✓  
+      - Desktop 1920×1080: PASS ✓
+      - Mobile 390×844: PASS ✓
+      
+      The gallery section now renders correctly at all desktop and laptop widths. The thin horizontal 
+      strip issue has been completely resolved. The responsive row height scaling (auto-rows-[180px] 
+      sm:auto-rows-[220px] md:auto-rows-[260px] lg:auto-rows-[300px] xl:auto-rows-[340px]) works 
+      perfectly, maintaining proper tile proportions across all viewports.
+      
+      Lightbox functionality verified working: open, close, prev/next navigation all functional.
+      Mobile layout unchanged and working correctly with 2-column grid.
+      
+      No issues found. Bug fix is effective and complete.

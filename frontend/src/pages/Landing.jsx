@@ -380,7 +380,7 @@ function Gallery({ items }) {
           </Reveal>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 md:grid-rows-4 gap-3 md:gap-4 auto-rows-[200px] md:auto-rows-[210px]">
+        <div className="grid grid-cols-2 md:grid-cols-4 md:grid-flow-row-dense gap-3 md:gap-4 auto-rows-[180px] sm:auto-rows-[220px] md:auto-rows-[260px] lg:auto-rows-[300px] xl:auto-rows-[340px]">
           {items.slice(0, 8).map((g, idx) => {
             const p = patterns[idx] || patterns[patterns.length - 1];
             return (
