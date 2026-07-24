@@ -5,7 +5,7 @@ import pytest
 import requests
 from datetime import datetime, timedelta
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://appointment-hub-969.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://galaxy-spa-init.preview.emergentagent.com").rstrip("/")
 # Fallback: read from frontend/.env
 if not BASE_URL:
     with open("/app/frontend/.env") as f:
