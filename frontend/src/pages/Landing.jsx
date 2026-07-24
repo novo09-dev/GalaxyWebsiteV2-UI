@@ -461,7 +461,7 @@ function Testimonials({ items }) {
             </Reveal>
           </div>
           <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 md:gap-6">
-            {rest.slice(0, 2).map((t, i) => (
+            {rest.map((t, i) => (
               <Reveal key={t.id} delay={0.05 + i * 0.05}>
                 <TestimonialCard item={t} />
               </Reveal>
