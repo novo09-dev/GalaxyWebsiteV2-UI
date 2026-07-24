@@ -1,60 +1,456 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Nav from "../components/galaxy/Nav";
 import Footer from "../components/galaxy/Footer";
+import Eyebrow from "../components/galaxy/primitives/Eyebrow";
+import EditorialHeading from "../components/galaxy/primitives/EditorialHeading";
+import Reveal from "../components/galaxy/primitives/Reveal";
+import Marquee from "../components/galaxy/primitives/Marquee";
+import ServiceCard from "../components/galaxy/cards/ServiceCard";
+import TeamCard from "../components/galaxy/cards/TeamCard";
+import TestimonialCard from "../components/galaxy/cards/TestimonialCard";
+import FeatureItem from "../components/galaxy/cards/FeatureItem";
+import GalleryTile from "../components/galaxy/cards/GalleryTile";
 import {
   getBusiness, getHeroSlides, getServices, getEmployees,
   getGallery, getTestimonials, getFAQs, getCategories,
 } from "../lib/api";
-import { ArrowRight, Star, Sparkles, Shield, ScissorsSquare, Clock, ChevronDown, MapPin, Phone, MessageCircle } from "lucide-react";
+import {
+  ArrowUpRight, ArrowRight, Star, Sparkles, Shield, ScissorsSquare, Clock,
+  ChevronDown, MapPin, Phone, MessageCircle, X as XIcon, Award, Leaf, HandHeart,
+} from "lucide-react";
 
+/* ==================================================================
+ * HERO — cinematic split with slide rail + editorial typography
+ * ================================================================== */
 function Hero({ slides }) {
   const [i, setI] = useState(0);
   useEffect(() => {
     if (!slides?.length) return;
-    const t = setInterval(() => setI((v) => (v + 1) % slides.length), 6000);
+    const t = setInterval(() => setI((v) => (v + 1) % slides.length), 6500);
     return () => clearInterval(t);
   }, [slides]);
-  if (!slides?.length) return null;
+  if (!slides?.length) {
+    return (
+      <section id="top" className="relative h-[100vh] min-h-[640px] bg-[#08080A]" data-testid="hero-section" />
+    );
+  }
+  const slide = slides[i];
 
   return (
-    <section id="top" className="relative h-[100vh] min-h-[640px] overflow-hidden bg-black" data-testid="hero-section">
+    <section id="top" className="relative h-[100vh] min-h-[680px] overflow-hidden bg-black" data-testid="hero-section">
       {slides.map((s, idx) => (
         <div key={s.id || idx} className={`hero-slide ${idx === i ? "active" : ""}`} aria-hidden={idx !== i}>
-          <img src={s.image} alt="" className="w-full h-full object-cover opacity-80" loading={idx === 0 ? "eager" : "lazy"} />
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
+          <img
+            src={s.image}
+            alt=""
+            className="hero-kb w-full h-full object-cover"
+            loading={idx === 0 ? "eager" : "lazy"}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/10" />
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         </div>
       ))}
 
-      <div className="relative z-10 h-full flex items-end pb-24 md:pb-32">
-        <div className="gx-container w-full">
-          <p className="eyebrow mb-6" data-testid="hero-chapter">
-            <span className="inline-block w-8 h-px bg-[#B91C1C] align-middle mr-3" />
-            {slides[i]?.chapter}
-          </p>
-          <h1 className="font-editorial text-5xl md:text-7xl lg:text-8xl max-w-4xl leading-[1.05] text-white" data-testid="hero-headline">
-            {slides[i]?.headline}
-          </h1>
-          <p className="mt-6 text-[#C9C9C9] max-w-xl leading-relaxed text-base md:text-lg font-body">
-            {slides[i]?.description}
-          </p>
-          <div className="mt-10 flex flex-wrap items-center gap-4">
-            <Link to="/book" className="btn-red" data-testid="hero-book-cta">
-              Book an Appointment <ArrowRight size={16} />
-            </Link>
-            <a href="#services" className="btn-ghost">Our Services</a>
+      {/* Corner brand tag */}
+      <div className="absolute top-28 md:top-32 left-0 right-0 z-10">
+        <div className="gx-container flex items-center justify-between">
+          <Eyebrow tone="cream">Est. Agartala — Hair · Beauty · Style</Eyebrow>
+          <span className="hidden md:inline eyebrow text-[#D9D3C6]/60">{String(i + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}</span>
+        </div>
+      </div>
+
+      <div className="relative z-10 h-full flex items-end pb-16 md:pb-24">
+        <div className="gx-container w-full grid grid-cols-12 gap-6 md:gap-10 items-end">
+          <div className="col-span-12 lg:col-span-8">
+            <p className="eyebrow-lg mb-6" data-testid="hero-chapter">
+              <span className="red-rule-lg mr-4" />
+              {slide?.chapter}
+            </p>
+            <h1
+              className="font-editorial text-[3rem] sm:text-6xl md:text-7xl lg:text-8xl xl:text-[8.5rem] leading-[0.95] tracking-[-0.02em] text-[#F2EDE4] max-w-[18ch]"
+              data-testid="hero-headline"
+            >
+              {slide?.headline}
+            </h1>
+            <p className="mt-6 md:mt-8 text-[#D9D3C6] max-w-xl leading-relaxed text-base md:text-lg">
+              {slide?.description}
+            </p>
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <Link to="/book" className="btn-red" data-testid="hero-book-cta">
+                Book an Appointment <ArrowUpRight size={14} />
+              </Link>
+              <a href="#services" className="btn-ghost">Our Services</a>
+            </div>
           </div>
 
-          <div className="mt-16 flex items-center gap-3">
+          {/* Slide rail */}
+          <div className="hidden lg:flex col-span-4 justify-end items-end">
+            <div className="flex flex-col gap-4 w-56">
+              {slides.map((s, idx) => (
+                <button
+                  key={s.id || idx}
+                  onClick={() => setI(idx)}
+                  className={`group text-left transition-all duration-500 ${idx === i ? "opacity-100" : "opacity-45 hover:opacity-80"}`}
+                  data-testid={`hero-dot-${idx}`}
+                  aria-label={`Slide ${idx + 1}: ${s.chapter}`}
+                >
+                  <span className={`rail-dot block ${idx === i ? "w-full active" : "w-8"}`} style={{ height: 1 }} />
+                  <span className="mt-3 block text-[10px] tracking-[0.28em] uppercase text-[#F2EDE4]">{s.chapter}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Mobile dots */}
+          <div className="lg:hidden col-span-12 flex items-center gap-3 mt-4">
             {slides.map((_, idx) => (
               <button
                 key={idx}
                 onClick={() => setI(idx)}
                 aria-label={`Slide ${idx + 1}`}
-                className={`h-[2px] transition-all duration-300 ${idx === i ? "w-14 bg-[#B91C1C]" : "w-8 bg-white/25 hover:bg-white/50"}`}
+                className={`h-[2px] transition-all duration-300 ${idx === i ? "w-12 bg-[#C21A1A]" : "w-6 bg-white/25"}`}
                 data-testid={`hero-dot-${idx}`}
               />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Scroll cue */}
+      <div className="hidden md:flex absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 text-[#F2EDE4]/60">
+        <span className="text-[10px] tracking-[0.32em] uppercase">Scroll</span>
+        <span className="w-px h-8 bg-[#F2EDE4]/30" />
+      </div>
+    </section>
+  );
+}
+
+/* ==================================================================
+ * WHY GALAXY — asymmetric feature grid + editorial stats
+ * ================================================================== */
+function WhyGalaxy({ business }) {
+  const items = [
+    { icon: ScissorsSquare, title: "Expert stylists", copy: "Trained, certified, obsessed with detail. Every hand at Galaxy has been chosen for craft." },
+    { icon: Sparkles, title: "Premium products", copy: "Trusted global brands, safe for every skin & scalp — nothing generic, nothing rushed." },
+    { icon: HandHeart, title: "Personalised care", copy: "Every service tailored around your hair, your skin, your day. A consult before every cut." },
+    { icon: Shield, title: "Hygiene first", copy: "Sterilised tools, single-use where it matters, and a studio you would happily bring family into." },
+  ];
+  const stats = [
+    { n: "7+", l: "Years of experience" },
+    { n: "10K+", l: "Happy clients" },
+    { n: "20+", l: "Trained stylists" },
+    { n: "4.9", l: "Average rating", sup: "★" },
+  ];
+  return (
+    <section id="about" className="section bg-[#0A0A0C]" data-testid="why-section">
+      <div className="gx-container">
+        <div className="grid grid-cols-12 gap-6 md:gap-12 items-end mb-14 md:mb-20">
+          <Reveal className="col-span-12 md:col-span-7">
+            <Eyebrow>Why Galaxy</Eyebrow>
+            <EditorialHeading as="h2" size="lg" className="mt-6">
+              More than a salon.<br />
+              <span className="italic-accent text-[#C21A1A]">An experience.</span>
+            </EditorialHeading>
+          </Reveal>
+          <Reveal delay={0.1} className="col-span-12 md:col-span-5">
+            <p className="text-[#B9B5AB] leading-relaxed text-base md:text-lg max-w-md">
+              {business?.about || "At Galaxy we combine expertise, behaviour and genuine care to create results that last. Your comfort, your trust and your satisfaction are what drive us — every single day."}
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-10">
+          {items.map((it, idx) => (
+            <Reveal key={it.title} delay={idx * 0.08} data-testid={`why-item-${idx}`}>
+              <FeatureItem Icon={it.icon} title={it.title} copy={it.copy} index={idx} />
+            </Reveal>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10 mt-20 md:mt-28 border-t border-[#17171A] pt-10 md:pt-14">
+          {stats.map((s, idx) => (
+            <Reveal key={s.l} delay={idx * 0.06}>
+              <div>
+                <p className="font-editorial text-5xl md:text-6xl lg:text-7xl text-[#F2EDE4] leading-none">
+                  {s.n}{s.sup && <span className="italic-accent text-[#C21A1A] text-3xl md:text-4xl">{s.sup}</span>}
+                </p>
+                <p className="eyebrow mt-3">{s.l}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ==================================================================
+ * FEATURED SERVICES — bento (large + supporting cards)
+ * ================================================================== */
+function FeaturedServices({ services, categories }) {
+  const featured = services.filter((s) => s.featured);
+  const catMap = Object.fromEntries((categories || []).map((c) => [c.id, c.name]));
+  const [hero, ...rest] = featured;
+  const shown = rest.slice(0, 7);
+
+  if (!hero) {
+    return null;
+  }
+
+  return (
+    <section id="services" className="section bg-[#08080A]" data-testid="services-section">
+      <div className="gx-container">
+        <div className="grid grid-cols-12 gap-6 md:gap-12 items-end mb-14 md:mb-20">
+          <Reveal className="col-span-12 md:col-span-8">
+            <Eyebrow>Our Services</Eyebrow>
+            <EditorialHeading as="h2" size="lg" className="mt-6">
+              Services that <span className="italic-accent text-[#C21A1A]">define you.</span>
+            </EditorialHeading>
+          </Reveal>
+          <Reveal delay={0.1} className="col-span-12 md:col-span-4">
+            <p className="text-[#B9B5AB] leading-relaxed max-w-md md:text-right md:ml-auto">
+              From a quiet trim to a full transformation — considered, honest, and shaped around your hair, your skin, and the life you actually live.
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="grid grid-cols-12 gap-4 md:gap-6">
+          <div className="col-span-12 lg:col-span-7">
+            <Reveal>
+              <ServiceCard
+                service={hero}
+                categoryName={catMap[hero.category_id]}
+                testid={`featured-service-${hero.id}`}
+                size="lg"
+              />
+            </Reveal>
+          </div>
+          <div className="col-span-12 lg:col-span-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 md:gap-6">
+            {shown.slice(0, 2).map((s, i) => (
+              <Reveal key={s.id} delay={0.05 + i * 0.05}>
+                <ServiceCard service={s} categoryName={catMap[s.category_id]} testid={`featured-service-${s.id}`} />
+              </Reveal>
+            ))}
+          </div>
+        </div>
+
+        {shown.length > 2 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-4 md:mt-6">
+            {shown.slice(2, 8).map((s, i) => (
+              <Reveal key={s.id} delay={i * 0.05}>
+                <ServiceCard service={s} categoryName={catMap[s.category_id]} testid={`featured-service-${s.id}`} />
+              </Reveal>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-14 md:mt-20 flex flex-col md:flex-row items-center justify-center gap-4">
+          <Link to="/book" className="btn-red" data-testid="services-view-all">
+            See Full Menu <ArrowUpRight size={14} />
+          </Link>
+          <p className="text-xs text-[#8C8880] tracking-widest uppercase">{services.length} services · Two studios in one</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ==================================================================
+ * TEAM — 4-up grid with grayscale-to-color hover
+ * ================================================================== */
+function Team({ team }) {
+  if (!team?.length) return null;
+  return (
+    <section id="team" className="section bg-[#0A0A0C]" data-testid="team-section">
+      <div className="gx-container">
+        <div className="grid grid-cols-12 gap-6 md:gap-12 items-end mb-14 md:mb-20">
+          <Reveal className="col-span-12 md:col-span-7">
+            <Eyebrow>Meet the Team</Eyebrow>
+            <EditorialHeading as="h2" size="lg" className="mt-6">
+              Hands you can <span className="italic-accent text-[#C21A1A]">trust.</span>
+            </EditorialHeading>
+          </Reveal>
+          <Reveal delay={0.1} className="col-span-12 md:col-span-5">
+            <p className="text-[#B9B5AB] leading-relaxed max-w-md md:text-right md:ml-auto">
+              A hand-picked studio of stylists, colourists and treatment specialists — each chosen for craft, temperament and hygiene discipline.
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+          {team.map((e, i) => (
+            <Reveal key={e.id} delay={i * 0.06}>
+              <TeamCard employee={e} index={i} />
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ==================================================================
+ * EDITORIAL CTA BANNER
+ * ================================================================== */
+function BookingBanner() {
+  return (
+    <section className="relative bg-[#C21A1A] overflow-hidden">
+      <div className="absolute inset-0 opacity-20 bg-gradient-to-br from-black/40 via-transparent to-black/40" />
+      <div className="grain-overlay relative gx-container py-16 md:py-24 flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+        <Reveal className="max-w-2xl">
+          <p className="eyebrow text-white/70">Reserve your chair</p>
+          <p className="font-editorial text-4xl md:text-6xl lg:text-7xl leading-[0.95] text-white mt-4">
+            Book your slot.<br />
+            <span className="italic-accent">We&apos;ll take it from there.</span>
+          </p>
+          <p className="text-white/85 mt-5 text-sm md:text-base max-w-md">
+            60 seconds to book. A small deposit secures your appointment — the rest is settled at the salon.
+          </p>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <Link
+            to="/book"
+            className="inline-flex items-center gap-3 bg-black text-white uppercase tracking-[0.14em] text-xs font-semibold px-8 py-5 rounded-full border border-black hover:bg-[#111] transition-colors"
+          >
+            Book Appointment <ArrowUpRight size={16} />
+          </Link>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* ==================================================================
+ * GALLERY — bento with lightbox
+ * ================================================================== */
+function Gallery({ items }) {
+  const [lb, setLb] = useState(null);
+  const [lbIdx, setLbIdx] = useState(0);
+  if (!items?.length) return null;
+
+  const open = (idx) => { setLbIdx(idx); setLb(items[idx].image); };
+  const close = () => setLb(null);
+  const nav = (dir) => {
+    const n = (lbIdx + dir + items.length) % items.length;
+    setLbIdx(n); setLb(items[n].image);
+  };
+
+  // Pattern: (2 col x 1 row) (1 col x 2 row tall) (1 col x 1) (1 col x 1) (1 col x 1) (2 col x 1)
+  // Simplified responsive pattern with span classes.
+  const patterns = [
+    { span: "md:col-span-2 md:row-span-1", aspect: "aspect-[16/10]" },
+    { span: "md:col-span-1 md:row-span-2", aspect: "aspect-[3/4] md:aspect-auto md:h-full" },
+    { span: "md:col-span-1 md:row-span-1", aspect: "aspect-square" },
+    { span: "md:col-span-1 md:row-span-1", aspect: "aspect-square" },
+    { span: "md:col-span-2 md:row-span-1", aspect: "aspect-[16/10]" },
+    { span: "md:col-span-1 md:row-span-1", aspect: "aspect-square" },
+    { span: "md:col-span-2 md:row-span-1", aspect: "aspect-[16/9]" },
+    { span: "md:col-span-1 md:row-span-1", aspect: "aspect-square" },
+  ];
+
+  return (
+    <section id="gallery" className="section bg-[#08080A]" data-testid="gallery-section">
+      <div className="gx-container">
+        <div className="grid grid-cols-12 gap-6 md:gap-12 items-end mb-14 md:mb-20">
+          <Reveal className="col-span-12 md:col-span-7">
+            <Eyebrow>Gallery</Eyebrow>
+            <EditorialHeading as="h2" size="lg" className="mt-6">
+              Small moments, <span className="italic-accent text-[#C21A1A]">big smiles.</span>
+            </EditorialHeading>
+          </Reveal>
+          <Reveal delay={0.1} className="col-span-12 md:col-span-5">
+            <p className="text-[#B9B5AB] leading-relaxed max-w-md md:text-right md:ml-auto">
+              A typical greatest-hits from the studio — the seats, the transformations, and those blowdry moments you never want to end.
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 md:grid-rows-4 gap-3 md:gap-4 auto-rows-[200px] md:auto-rows-[210px]">
+          {items.slice(0, 8).map((g, idx) => {
+            const p = patterns[idx] || patterns[patterns.length - 1];
+            return (
+              <GalleryTile
+                key={g.id}
+                item={g}
+                index={idx}
+                span={p.span}
+                aspectClass={""}
+                onClick={() => open(idx)}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {lb && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-6"
+          onClick={close}
+          data-testid="lightbox"
+        >
+          <button
+            className="absolute top-6 right-6 w-11 h-11 rounded-full border border-white/25 flex items-center justify-center text-white hover:border-white transition-colors"
+            onClick={(e) => { e.stopPropagation(); close(); }}
+            aria-label="Close"
+          >
+            <XIcon size={16} />
+          </button>
+          <img src={lb} alt="" className="max-h-[86vh] max-w-[92vw] object-contain" onClick={(e) => e.stopPropagation()} />
+          <button
+            className="absolute left-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full border border-white/25 flex items-center justify-center text-white hover:border-white transition-colors"
+            onClick={(e) => { e.stopPropagation(); nav(-1); }}
+            aria-label="Previous"
+          >
+            <ChevronDown className="rotate-90" size={16} />
+          </button>
+          <button
+            className="absolute right-6 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full border border-white/25 flex items-center justify-center text-white hover:border-white transition-colors"
+            onClick={(e) => { e.stopPropagation(); nav(1); }}
+            aria-label="Next"
+          >
+            <ChevronDown className="-rotate-90" size={16} />
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ==================================================================
+ * TESTIMONIALS
+ * ================================================================== */
+function Testimonials({ items }) {
+  if (!items?.length) return null;
+  const [feature, ...rest] = items;
+  return (
+    <section className="section bg-[#0A0A0C]" data-testid="testimonials-section">
+      <div className="gx-container">
+        <div className="grid grid-cols-12 gap-6 md:gap-12 items-end mb-14 md:mb-20">
+          <Reveal className="col-span-12 md:col-span-7">
+            <Eyebrow>Testimonials</Eyebrow>
+            <EditorialHeading as="h2" size="lg" className="mt-6">
+              Kind words from <span className="italic-accent text-[#C21A1A]">our chairs.</span>
+            </EditorialHeading>
+          </Reveal>
+          <Reveal delay={0.1} className="col-span-12 md:col-span-5">
+            <p className="text-[#B9B5AB] leading-relaxed max-w-md md:text-right md:ml-auto">
+              Unedited notes from clients who trust us with cuts, colour and treatments — sometimes on their happiest days.
+            </p>
+          </Reveal>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
+          <div className="lg:col-span-3">
+            <Reveal>
+              <TestimonialCard item={feature} size="lg" />
+            </Reveal>
+          </div>
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 md:gap-6">
+            {rest.slice(0, 2).map((t, i) => (
+              <Reveal key={t.id} delay={0.05 + i * 0.05}>
+                <TestimonialCard item={t} />
+              </Reveal>
             ))}
           </div>
         </div>
@@ -63,259 +459,169 @@ function Hero({ slides }) {
   );
 }
 
-function WhyChoose() {
-  const items = [
-    { icon: ScissorsSquare, title: "Expert Stylists", copy: "Trained, certified, obsessed with detail." },
-    { icon: Sparkles, title: "Premium Products", copy: "Trusted brands, safe for every skin & scalp." },
-    { icon: Star, title: "Personalised Care", copy: "Every service tailored around you." },
-    { icon: Shield, title: "Hygiene First", copy: "Sterilised tools, single-use where it matters." },
-  ];
-  return (
-    <section id="about" className="section bg-[#0A0A0A]" data-testid="why-section">
-      <div className="gx-container">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-end mb-14">
-          <div className="md:col-span-6">
-            <p className="eyebrow mb-4">Why Galaxy</p>
-            <h2 className="font-editorial text-4xl md:text-5xl leading-[1.05]">More than a salon.<br /><span className="text-[#B91C1C]">An experience.</span></h2>
-          </div>
-          <p className="md:col-span-6 text-[#B9B9B9] leading-relaxed">
-            At Galaxy we combine expertise, behaviour and genuine care to create results that last. Your comfort, your trust and your satisfaction are what drive us — every single day.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {items.map((it, idx) => (
-            <div key={idx} className="gx-card p-6 md:p-8" data-testid={`why-item-${idx}`}>
-              <div className="w-10 h-10 border border-[#2A2A2A] flex items-center justify-center mb-6">
-                <it.icon size={16} className="text-[#B91C1C]" />
-              </div>
-              <p className="font-display text-lg tracking-tight">{it.title}</p>
-              <p className="text-[#8F8F8F] text-sm mt-2 leading-relaxed">{it.copy}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 border-t border-[#1a1a1a] pt-10">
-          {[["7+","Years of experience"],["10K+","Happy clients"],["20+","Trained stylists"],["4.9★","Average rating"]].map(([n, l]) => (
-            <div key={l}>
-              <p className="font-editorial text-4xl md:text-5xl">{n}</p>
-              <p className="eyebrow mt-2">{l}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function FeaturedServices({ services, categories }) {
-  const featured = services.filter((s) => s.featured).slice(0, 8);
-  const catMap = Object.fromEntries((categories || []).map((c) => [c.id, c]));
-  return (
-    <section id="services" className="section bg-[#0d0d0d]" data-testid="services-section">
-      <div className="gx-container">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-14">
-          <div>
-            <p className="eyebrow mb-4">Our Services</p>
-            <h2 className="font-editorial text-4xl md:text-5xl leading-[1.05]">Services that <span className="text-[#B91C1C]">define you.</span></h2>
-          </div>
-          <p className="max-w-md text-[#B9B9B9]">From classic cuts to advanced treatments — we bring out the best in you.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {featured.map((s) => (
-            <div key={s.id} className="gx-card p-6 md:p-8 flex items-center gap-6" data-testid={`featured-service-${s.id}`}>
-              <img src={s.image} alt="" className="w-24 h-24 md:w-28 md:h-28 object-cover" loading="lazy" />
-              <div className="flex-1 min-w-0">
-                <p className="eyebrow text-[10px] mb-1">{catMap[s.category_id]?.name || s.group}</p>
-                <p className="font-display text-xl">{s.name}</p>
-                <div className="flex items-center gap-4 text-xs text-[#8F8F8F] mt-2">
-                  <span className="flex items-center gap-1"><Clock size={12} /> {s.duration} min</span>
-                  <span>₹{s.price.toLocaleString()}</span>
-                  <span className="text-[#B91C1C]">Booking ₹{s.deposit.toLocaleString()}</span>
-                </div>
-              </div>
-              <Link to={`/book?service=${s.id}`} className="btn-ghost hidden sm:inline-flex">Book</Link>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-12 text-center">
-          <Link to="/book" className="btn-red inline-flex" data-testid="services-view-all">See Full Menu <ArrowRight size={16} /></Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Team({ team }) {
-  return (
-    <section id="team" className="section bg-[#0A0A0A]" data-testid="team-section">
-      <div className="gx-container">
-        <div className="mb-14 max-w-2xl">
-          <p className="eyebrow mb-4">Meet the Team</p>
-          <h2 className="font-editorial text-4xl md:text-5xl leading-[1.05]">Hands you can <span className="text-[#B91C1C]">trust.</span></h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {team.map((e) => (
-            <div key={e.id} className="gx-card overflow-hidden" data-testid={`team-member-${e.id}`}>
-              <div className="aspect-[4/5] overflow-hidden bg-[#1a1a1a]">
-                <img src={e.photo} alt={e.name} className="w-full h-full object-cover" loading="lazy" />
-              </div>
-              <div className="p-5">
-                <p className="font-display text-lg">{e.name}</p>
-                <p className="text-[#8F8F8F] text-xs mt-1">{e.position}</p>
-                <p className="text-[#B9B9B9] text-sm mt-3 leading-relaxed line-clamp-2">{e.specialty}</p>
-                <div className="flex items-center gap-1 mt-4 text-xs text-[#B91C1C]"><Star size={12} fill="#B91C1C" /> {e.rating}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Gallery({ items }) {
-  const [lb, setLb] = useState(null);
-  return (
-    <section id="gallery" className="section bg-[#0d0d0d]" data-testid="gallery-section">
-      <div className="gx-container">
-        <div className="mb-14 flex justify-between items-end flex-wrap gap-4">
-          <div>
-            <p className="eyebrow mb-4">Gallery</p>
-            <h2 className="font-editorial text-4xl md:text-5xl leading-[1.05]">Inside the studio.</h2>
-          </div>
-          <p className="max-w-sm text-[#B9B9B9] text-sm">Every space, every chair, every detail — designed for calm and quality.</p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {items.map((g, idx) => (
-            <button
-              key={g.id}
-              onClick={() => setLb(g.image)}
-              className={`overflow-hidden aspect-square bg-[#1a1a1a] ${idx % 5 === 0 ? "md:row-span-2 md:aspect-auto md:h-full" : ""}`}
-              data-testid={`gallery-item-${idx}`}
-            >
-              <img src={g.image} alt="" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" loading="lazy" />
-            </button>
-          ))}
-        </div>
-      </div>
-      {lb && (
-        <div className="fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-6" onClick={() => setLb(null)} data-testid="lightbox">
-          <img src={lb} alt="" className="max-h-full max-w-full object-contain" />
-        </div>
-      )}
-    </section>
-  );
-}
-
-function Testimonials({ items }) {
-  return (
-    <section className="section bg-[#0A0A0A]" data-testid="testimonials-section">
-      <div className="gx-container">
-        <div className="mb-14 max-w-2xl">
-          <p className="eyebrow mb-4">Testimonials</p>
-          <h2 className="font-editorial text-4xl md:text-5xl leading-[1.05]">Kind words from our <span className="text-[#B91C1C]">chairs.</span></h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {items.map((t) => (
-            <div key={t.id} className="gx-card p-8" data-testid={`testimonial-${t.id}`}>
-              <div className="flex items-center gap-1 mb-4">
-                {[...Array(t.rating)].map((_, i) => <Star key={i} size={14} className="text-[#B91C1C]" fill="#B91C1C" />)}
-              </div>
-              <p className="font-editorial text-xl md:text-2xl leading-snug">"{t.review}"</p>
-              <p className="mt-6 eyebrow">{t.name}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
+/* ==================================================================
+ * FAQ — numbered accordion
+ * ================================================================== */
 function FAQSection({ items }) {
   const [open, setOpen] = useState(0);
+  if (!items?.length) return null;
   return (
-    <section className="section bg-[#0d0d0d]" data-testid="faq-section">
-      <div className="gx-container grid grid-cols-1 md:grid-cols-12 gap-12">
-        <div className="md:col-span-4">
-          <p className="eyebrow mb-4">FAQ</p>
-          <h2 className="font-editorial text-4xl md:text-5xl leading-[1.05]">Questions, answered.</h2>
-        </div>
-        <div className="md:col-span-8 space-y-3">
-          {items.map((f, idx) => (
-            <div key={f.id} className="border-b border-[#1e1e1e]" data-testid={`faq-${idx}`}>
-              <button onClick={() => setOpen(open === idx ? -1 : idx)} className="w-full flex items-center justify-between py-5 text-left">
-                <span className="font-display text-lg">{f.question}</span>
-                <ChevronDown size={18} className={`transition-transform ${open === idx ? "rotate-180 text-[#B91C1C]" : "text-[#8F8F8F]"}`} />
-              </button>
-              {open === idx && <p className="pb-6 text-[#B9B9B9] leading-relaxed max-w-3xl">{f.answer}</p>}
-            </div>
-          ))}
+    <section className="section bg-[#08080A]" data-testid="faq-section">
+      <div className="gx-container grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-16">
+        <Reveal className="md:col-span-4">
+          <Eyebrow>FAQ</Eyebrow>
+          <EditorialHeading as="h2" size="lg" className="mt-6">
+            Questions, <span className="italic-accent text-[#C21A1A]">answered.</span>
+          </EditorialHeading>
+          <p className="text-[#8C8880] text-sm mt-6 max-w-xs leading-relaxed">
+            Still curious? Drop us a message on WhatsApp or call the studio directly.
+          </p>
+        </Reveal>
+
+        <div className="md:col-span-8">
+          {items.map((f, idx) => {
+            const active = open === idx;
+            return (
+              <div key={f.id} className="border-b border-[#17171A]" data-testid={`faq-${idx}`}>
+                <button
+                  onClick={() => setOpen(active ? -1 : idx)}
+                  className="w-full flex items-start gap-6 py-6 md:py-7 text-left group"
+                  aria-expanded={active}
+                >
+                  <span className="num-tag mt-1 shrink-0">{String(idx + 1).padStart(2, "0")}</span>
+                  <span className="flex-1 font-editorial text-xl md:text-2xl text-[#F2EDE4] group-hover:text-white transition-colors leading-snug">
+                    {f.question}
+                  </span>
+                  <span className={`shrink-0 w-9 h-9 rounded-full border border-[#26262A] flex items-center justify-center text-[#F2EDE4] transition-all ${active ? "bg-[#C21A1A] border-[#C21A1A] rotate-180" : "group-hover:border-[#C21A1A]"}`}>
+                    <ChevronDown size={14} />
+                  </span>
+                </button>
+                <div className={`grid transition-all duration-500 ease-out ${active ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                  <div className="overflow-hidden">
+                    <p className="pb-6 md:pb-8 pl-12 pr-4 text-[#B9B5AB] leading-relaxed text-[15px] max-w-3xl">{f.answer}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>
   );
 }
 
+/* ==================================================================
+ * CONTACT — two-column with dynamic map query
+ * ================================================================== */
 function Contact({ business }) {
   const b = business || {};
   const wa = (b.whatsapp || b.phone || "").replace(/\D/g, "");
+  const mapQuery = encodeURIComponent(b.address || "Dhaleswar Agartala Tripura");
   return (
-    <section id="contact" className="section bg-[#0A0A0A]" data-testid="contact-section">
-      <div className="gx-container grid grid-cols-1 md:grid-cols-12 gap-10">
-        <div className="md:col-span-5">
-          <p className="eyebrow mb-4">Contact</p>
-          <h2 className="font-editorial text-4xl md:text-5xl leading-[1.05]">Come say hello.</h2>
-          <p className="text-[#B9B9B9] mt-6 leading-relaxed max-w-md">Walk-ins welcome. For a guaranteed slot with your preferred stylist, book online in under 2 minutes.</p>
+    <section id="contact" className="section bg-[#0A0A0C]" data-testid="contact-section">
+      <div className="gx-container grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16">
+        <Reveal className="md:col-span-5">
+          <Eyebrow>Contact</Eyebrow>
+          <EditorialHeading as="h2" size="lg" className="mt-6">
+            Come say <span className="italic-accent text-[#C21A1A]">hello.</span>
+          </EditorialHeading>
+          <p className="text-[#B9B5AB] mt-6 leading-relaxed max-w-md">
+            Walk-ins welcome. For a guaranteed slot with your preferred stylist, book online in under two minutes.
+          </p>
 
-          <ul className="mt-8 space-y-4 text-sm">
-            <li className="flex gap-3"><MapPin size={16} className="text-[#B91C1C] mt-0.5" /><span className="text-[#DADADA]">{b.address}</span></li>
-            <li className="flex gap-3"><Phone size={16} className="text-[#B91C1C] mt-0.5" /><a href={`tel:${b.phone}`} className="text-[#DADADA] hover:text-white">{b.phone}</a></li>
-            <li className="flex gap-3"><Clock size={16} className="text-[#B91C1C] mt-0.5" /><span className="text-[#DADADA]">{b.working_hours_text}</span></li>
+          <ul className="mt-10 space-y-6 text-sm">
+            {b.address && (
+              <li className="flex gap-4">
+                <MapPin size={16} className="text-[#C21A1A] mt-0.5 shrink-0" />
+                <div>
+                  <p className="eyebrow mb-1">Visit</p>
+                  <p className="text-[#F2EDE4] leading-relaxed">{b.address}</p>
+                </div>
+              </li>
+            )}
+            {b.phone && (
+              <li className="flex gap-4">
+                <Phone size={16} className="text-[#C21A1A] mt-0.5 shrink-0" />
+                <div>
+                  <p className="eyebrow mb-1">Call</p>
+                  <a href={`tel:${b.phone}`} className="text-[#F2EDE4] hover:text-white">{b.phone}</a>
+                </div>
+              </li>
+            )}
+            {b.working_hours_text && (
+              <li className="flex gap-4">
+                <Clock size={16} className="text-[#C21A1A] mt-0.5 shrink-0" />
+                <div>
+                  <p className="eyebrow mb-1">Open</p>
+                  <p className="text-[#F2EDE4]">{b.working_hours_text}</p>
+                </div>
+              </li>
+            )}
           </ul>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link to="/book" className="btn-red">Book Appointment</Link>
-            {wa && <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer" className="btn-ghost"><MessageCircle size={14} /> WhatsApp</a>}
+          <div className="mt-10 flex flex-wrap gap-3">
+            <Link to="/book" className="btn-red">Book Appointment <ArrowUpRight size={14} /></Link>
+            {wa && (
+              <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer" className="btn-ghost">
+                <MessageCircle size={14} /> WhatsApp
+              </a>
+            )}
           </div>
-        </div>
+        </Reveal>
 
-        <div className="md:col-span-7">
-          <div className="aspect-[16/12] w-full bg-[#111] border border-[#1e1e1e] overflow-hidden">
+        <Reveal delay={0.1} className="md:col-span-7">
+          <div className="relative aspect-[16/12] w-full bg-[#111113] border border-[#17171A] overflow-hidden">
             <iframe
               title="Galaxy Salon Location"
-              src="https://www.google.com/maps?q=Jail+Ashram+Road+Dhaleswar+Agartala+Tripura&output=embed"
+              src={`https://www.google.com/maps?q=${mapQuery}&output=embed`}
               className="w-full h-full grayscale contrast-125 opacity-90"
               loading="lazy"
             />
+            <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-[#26262A]" />
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   );
 }
 
+/* ==================================================================
+ * LANDING PAGE — composition
+ * ================================================================== */
 export default function Landing() {
-  const [state, setState] = useState({ slides: [], services: [], employees: [], gallery: [], testimonials: [], faqs: [], categories: [], business: null });
+  const [state, setState] = useState({
+    slides: [], services: [], employees: [], gallery: [],
+    testimonials: [], faqs: [], categories: [], business: null,
+  });
 
   useEffect(() => {
     (async () => {
-      const [slides, services, employees, gallery, testimonials, faqs, categories, business] = await Promise.all([
-        getHeroSlides(), getServices(), getEmployees(), getGallery(), getTestimonials(), getFAQs(), getCategories(), getBusiness(),
-      ]);
-      setState({ slides, services, employees, gallery, testimonials, faqs, categories, business });
+      try {
+        const [slides, services, employees, gallery, testimonials, faqs, categories, business] = await Promise.all([
+          getHeroSlides(), getServices(), getEmployees(), getGallery(),
+          getTestimonials(), getFAQs(), getCategories(), getBusiness(),
+        ]);
+        setState({ slides, services, employees, gallery, testimonials, faqs, categories, business });
+      } catch (e) {
+        // Fail quietly — sections gracefully hide when empty.
+      }
     })();
   }, []);
+
+  const marqueeItems = useMemo(() => ([
+    "Signature Cuts", "Colour & Highlights", "Keratin & Treatments",
+    "Beard Craft", "Facials", "Since 2018", "Agartala", "Unisex Studio",
+  ]), []);
 
   return (
     <>
       <Nav />
       <main>
         <Hero slides={state.slides} />
-        <WhyChoose />
+        <Marquee items={marqueeItems} />
+        <WhyGalaxy business={state.business} />
         <FeaturedServices services={state.services} categories={state.categories} />
+        <BookingBanner />
         <Team team={state.employees} />
         <Gallery items={state.gallery} />
         <Testimonials items={state.testimonials} />

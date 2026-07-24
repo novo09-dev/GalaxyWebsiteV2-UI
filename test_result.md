@@ -101,3 +101,133 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Phase 1 — Redesign the customer-facing React application for Galaxy (Hair · Beauty · Style).
+  Constraints: presentation layer only. Backend, database, APIs, auth, booking logic,
+  Google Calendar, payments, and admin dashboard must remain functionally unchanged.
+  Design direction: premium, modern, editorial, warm, minimal, mobile-first, accessible.
+
+backend:
+  - task: "Backend untouched (out of scope)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "No backend changes in Phase 1. Restored missing .env files (MONGO_URL, DB_NAME=galaxy, admin seed, RAZORPAY_MODE=mock, empty Google keys) so the app can boot. Seed verified — 43 services, 4 employees, 2 categories."
+
+frontend:
+  - task: "Public design system + primitives (Eyebrow, EditorialHeading, Badge, Reveal, Marquee, BrandMark, Section)"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/components/galaxy/primitives/*.jsx, frontend/src/index.css"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "New shared primitives created. index.css extended with warm cream palette (#F2EDE4), refined tokens, pill buttons, marquee keyframe, image treatments, editorial numeral tag. Existing .gx-container / .eyebrow / .btn-red / .btn-ghost / .gx-card retained."
+
+  - task: "Public card family (ServiceCard, TeamCard, TestimonialCard, FeatureItem, GalleryTile)"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/components/galaxy/cards/*.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Reusable cards used across Landing and (some) Booking. Preserve all data-testids (team-member-*, testimonial-*, gallery-item-*, featured-service-*)."
+
+  - task: "Nav + Footer redesigned (shared shell)"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/components/galaxy/Nav.jsx, frontend/src/components/galaxy/Footer.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Glass-blur nav on scroll, mobile full-screen editorial overlay. Footer with editorial 'Come see us soon.' banner. Preserves data-testids: site-nav, nav-book-cta, nav-toggle, nav-mobile, nav-mobile-book, nav-logo, site-footer."
+
+  - task: "Landing page — full editorial redesign (Hero, Marquee, Why, Services bento, Team, Booking banner, Gallery bento, Testimonials, FAQ, Contact)"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/pages/Landing.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Rewrite of visual composition. All data still fed by existing APIs (getHeroSlides, getServices, getCategories, getEmployees, getGallery, getTestimonials, getFAQs, getBusiness). Contact map now uses business.address dynamically (no hardcoded query). Every original data-testid preserved: hero-section, hero-chapter, hero-headline, hero-book-cta, hero-dot-*, why-item-*, services-section, featured-service-*, services-view-all, team-section, team-member-*, gallery-section, gallery-item-*, lightbox, testimonials-section, testimonial-*, faq-section, faq-*, contact-section."
+
+  - task: "Booking wizard — restyle, state machine preserved"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/pages/Booking.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "8-step state machine, canNext(), submitBooking(), availability useEffect, and every API call preserved 1:1. Deep-link /book?service={id} still works. Added: numbered step rail with clickable back-navigation, framer-motion step transitions, refined date picker, sticky editorial summary. Preserves testids: booking-page, booking-step-label, booking-summary, step-category/service/employee/date/time/details/review/payment, cat-*, svc-*, emp-any, emp-*, cal-prev, cal-next, cal-day-*, slot-*, input-name/phone/email/notes, accept-terms, pay-now, btn-back, btn-next."
+
+  - task: "Booking confirmation redesigned"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/pages/BookingConfirmation.jsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Editorial confirmation page with copy-code affordance, next-steps checklist, WhatsApp deep link. Preserves data-testid: confirmation-page, confirmation-details."
+
+  - task: "Privacy + Terms restyled to design system"
+    implemented: true
+    working: "NA"
+    file: "frontend/src/pages/Privacy.jsx, frontend/src/pages/Terms.jsx"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Restyled with new primitives. Content unchanged."
+
+metadata:
+  created_by: "main_agent"
+  version: "2.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Landing page — full editorial redesign (Hero, Marquee, Why, Services bento, Team, Booking banner, Gallery bento, Testimonials, FAQ, Contact)"
+    - "Booking wizard — restyle, state machine preserved"
+    - "Booking confirmation redesigned"
+    - "Nav + Footer redesigned (shared shell)"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Phase 1 redesign implementation complete. Backend untouched. All public frontend pages
+      (Landing, Booking, BookingConfirmation, Privacy, Terms) and shared shell (Nav, Footer)
+      rewritten as a cohesive editorial design system with reusable primitives + card family.
+      Every existing data-testid preserved. Every API call preserved. Booking state machine
+      preserved 1:1. Lint clean on all new/modified files.
+      Awaiting user go-ahead to invoke frontend testing agent for full flow verification.

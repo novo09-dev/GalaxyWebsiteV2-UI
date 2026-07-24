@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { AnimatePresence, motion } from "framer-motion";
 import Nav from "../components/galaxy/Nav";
 import Footer from "../components/galaxy/Footer";
+import Eyebrow from "../components/galaxy/primitives/Eyebrow";
+import EditorialHeading from "../components/galaxy/primitives/EditorialHeading";
+import Badge from "../components/galaxy/primitives/Badge";
 import {
   getCategories, getServices, getEmployees, getAvailability, createBooking, verifyPayment, getBusiness,
 } from "../lib/api";
-import { ArrowLeft, ArrowRight, Check, Clock, ChevronLeft, ChevronRight, Sparkles, User, CalendarDays, IndianRupee, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft, ArrowRight, ArrowUpRight, Check, Clock, ChevronLeft, ChevronRight,
+  Sparkles, User, CalendarDays, ShieldCheck, IndianRupee, Info,
+} from "lucide-react";
 
 const STEPS = [
   { key: "category", label: "Category" },
@@ -19,92 +26,191 @@ const STEPS = [
   { key: "payment", label: "Payment" },
 ];
 
-function StepBar({ current }) {
+/* ---------------- Step Rail ---------------- */
+function StepRail({ current, onJump, allowJump }) {
   const pct = ((current + 1) / STEPS.length) * 100;
   return (
-    <div className="mb-10">
-      <div className="flex items-center justify-between mb-3">
-        <p className="eyebrow" data-testid="booking-step-label">Step {current + 1} of {STEPS.length} · {STEPS[current].label}</p>
-        <p className="text-xs text-[#8F8F8F]">{Math.round(pct)}%</p>
+    <div className="mb-12">
+      <div className="flex items-center justify-between mb-4">
+        <p className="eyebrow" data-testid="booking-step-label">
+          Step {current + 1} of {STEPS.length} · <span className="text-[#F2EDE4]">{STEPS[current].label}</span>
+        </p>
+        <p className="text-[10px] tracking-widest uppercase text-[#8C8880]">{Math.round(pct)}% complete</p>
       </div>
       <div className="progress-line"><span style={{ width: `${pct}%` }} /></div>
+      <ol className="hidden md:flex items-center justify-between mt-6 gap-2">
+        {STEPS.map((s, i) => {
+          const done = i < current;
+          const active = i === current;
+          const clickable = allowJump && (done || active);
+          return (
+            <li key={s.key} className="flex-1">
+              <button
+                type="button"
+                onClick={() => clickable && onJump(i)}
+                disabled={!clickable}
+                className={`w-full text-left group ${clickable ? "cursor-pointer" : "cursor-default"}`}
+                aria-current={active ? "step" : undefined}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`step-dot w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-medium ${
+                      done ? "bg-[#C21A1A] border-[#C21A1A] text-white"
+                      : active ? "border-[#C21A1A] text-[#C21A1A] bg-[#C21A1A]/10"
+                      : "border-[#26262A] text-[#6E6A62]"
+                    }`}
+                  >
+                    {done ? <Check size={11} /> : i + 1}
+                  </span>
+                  <span className={`text-[10px] tracking-[0.22em] uppercase ${active ? "text-[#F2EDE4]" : done ? "text-[#D9D3C6]" : "text-[#6E6A62]"}`}>
+                    {s.label}
+                  </span>
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
 
-function Summary({ svc, emp, date, time, endTime }) {
-  if (!svc) return null;
+/* ---------------- Summary sidebar ---------------- */
+function Summary({ svc, emp, date, time, endTime, category }) {
   return (
-    <aside className="gx-card p-6 sticky top-28" data-testid="booking-summary">
-      <p className="eyebrow mb-4">Booking Summary</p>
-      <div className="space-y-4 text-sm">
-        <div>
-          <p className="text-[#8F8F8F] text-xs mb-1">Service</p>
-          <p className="font-display text-base">{svc.name}</p>
-          <p className="text-[#8F8F8F] text-xs mt-1">{svc.duration} min · ₹{svc.price.toLocaleString()}</p>
-        </div>
-        {emp && (
-          <div>
-            <p className="text-[#8F8F8F] text-xs mb-1">Professional</p>
-            <p>{emp.name}</p>
-          </div>
-        )}
-        {date && (
-          <div>
-            <p className="text-[#8F8F8F] text-xs mb-1">Date & Time</p>
-            <p>{date}{time ? ` · ${time}${endTime ? ` – ${endTime}` : ""}` : ""}</p>
-          </div>
-        )}
-        <div className="border-t border-[#1e1e1e] pt-4 space-y-2 text-sm">
-          <div className="flex justify-between"><span className="text-[#8F8F8F]">Total</span><span>₹{svc.price.toLocaleString()}</span></div>
-          <div className="flex justify-between"><span className="text-[#8F8F8F]">Booking Deposit</span><span className="text-[#B91C1C] font-medium">₹{svc.deposit.toLocaleString()}</span></div>
-          <div className="flex justify-between"><span className="text-[#8F8F8F]">Balance at salon</span><span>₹{(svc.price - svc.deposit).toLocaleString()}</span></div>
-        </div>
+    <aside className="gx-panel p-6 md:p-7 sticky top-28" data-testid="booking-summary">
+      <div className="flex items-center justify-between mb-6">
+        <Eyebrow>Your booking</Eyebrow>
+        {svc && <Badge>Draft</Badge>}
       </div>
+
+      {!svc ? (
+        <div className="py-6">
+          <p className="font-editorial text-2xl text-[#F2EDE4] leading-tight">Pick a service to begin.</p>
+          <p className="text-[#8C8880] text-sm mt-3">Your summary appears here as you choose. Nothing is confirmed until you complete payment.</p>
+        </div>
+      ) : (
+        <div className="space-y-5 text-sm">
+          {category && (
+            <div>
+              <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-1">Category</p>
+              <p className="text-[#F2EDE4]">{category}</p>
+            </div>
+          )}
+          <div>
+            <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-1">Service</p>
+            <p className="font-editorial text-2xl leading-tight text-[#F2EDE4]">{svc.name}</p>
+            <p className="text-[#8C8880] text-xs mt-1">{svc.duration} min</p>
+          </div>
+          {emp && (
+            <div>
+              <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-1">Professional</p>
+              <p className="text-[#F2EDE4]">{emp.name}</p>
+            </div>
+          )}
+          {date && (
+            <div>
+              <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-1">Date &amp; time</p>
+              <p className="text-[#F2EDE4]">{date}{time ? ` · ${time}${endTime ? ` – ${endTime}` : ""}` : ""}</p>
+            </div>
+          )}
+          <div className="border-t border-[#1D1D20] pt-5 space-y-3">
+            <Row label="Total" value={`₹${svc.price.toLocaleString()}`} />
+            <Row label="Deposit today" value={`₹${svc.deposit.toLocaleString()}`} accent />
+            <Row label="Pay at salon" value={`₹${(svc.price - svc.deposit).toLocaleString()}`} muted />
+          </div>
+          <p className="text-[11px] leading-relaxed text-[#8C8880] pt-1">
+            The deposit is adjusted against your final bill. Reschedule free up to 4 hours before.
+          </p>
+        </div>
+      )}
     </aside>
   );
 }
 
+function Row({ label, value, accent, muted }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[#8C8880] text-xs uppercase tracking-widest">{label}</span>
+      <span className={`font-editorial text-lg ${accent ? "text-[#C21A1A]" : muted ? "text-[#D9D3C6]" : "text-[#F2EDE4]"}`}>{value}</span>
+    </div>
+  );
+}
+
+/* ---------------- Date picker (custom calendar) ---------------- */
 function DatePicker({ value, onChange }) {
   const [ref, setRef] = useState(() => {
-    const d = new Date(); d.setDate(1); return d;
+    const d = new Date();
+    d.setDate(1);
+    return d;
   });
-  const today = new Date(); today.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
   const days = useMemo(() => {
     const y = ref.getFullYear(), m = ref.getMonth();
-    const firstDow = new Date(y, m, 1).getDay(); // 0=Sun
+    const firstDow = new Date(y, m, 1).getDay();
     const daysInMonth = new Date(y, m + 1, 0).getDate();
     const cells = [];
     for (let i = 0; i < firstDow; i++) cells.push(null);
     for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
     return cells;
   }, [ref]);
+
   const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <button onClick={() => setRef(new Date(ref.getFullYear(), ref.getMonth() - 1, 1))} className="p-2 border border-[#2A2A2A] hover:border-[#B91C1C]" data-testid="cal-prev"><ChevronLeft size={14} /></button>
-        <p className="font-display tracking-wide">{ref.toLocaleString("en", { month: "long", year: "numeric" })}</p>
-        <button onClick={() => setRef(new Date(ref.getFullYear(), ref.getMonth() + 1, 1))} className="p-2 border border-[#2A2A2A] hover:border-[#B91C1C]" data-testid="cal-next"><ChevronRight size={14} /></button>
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={() => setRef(new Date(ref.getFullYear(), ref.getMonth() - 1, 1))}
+          className="w-10 h-10 rounded-full border border-[#26262A] hover:border-[#C21A1A] flex items-center justify-center text-[#F2EDE4] transition-colors"
+          data-testid="cal-prev"
+          aria-label="Previous month"
+        >
+          <ChevronLeft size={14} />
+        </button>
+        <p className="font-editorial text-xl md:text-2xl tracking-tight text-[#F2EDE4]">
+          {ref.toLocaleString("en", { month: "long" })}{" "}
+          <span className="italic-accent text-[#8C8880]">{ref.getFullYear()}</span>
+        </p>
+        <button
+          onClick={() => setRef(new Date(ref.getFullYear(), ref.getMonth() + 1, 1))}
+          className="w-10 h-10 rounded-full border border-[#26262A] hover:border-[#C21A1A] flex items-center justify-center text-[#F2EDE4] transition-colors"
+          data-testid="cal-next"
+          aria-label="Next month"
+        >
+          <ChevronRight size={14} />
+        </button>
       </div>
-      <div className="grid grid-cols-7 gap-2 text-center text-xs text-[#8F8F8F] mb-2">
-        {["S","M","T","W","T","F","S"].map((d,i) => <span key={i}>{d}</span>)}
+
+      <div className="grid grid-cols-7 gap-2 text-center text-[10px] tracking-[0.2em] uppercase text-[#6E6A62] mb-3">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <span key={d}>{d.slice(0, 1)}</span>)}
       </div>
+
       <div className="grid grid-cols-7 gap-2">
         {days.map((d, i) => {
           if (!d) return <span key={i} />;
           const disabled = d < today;
           const iso = fmt(d);
           const active = value === iso;
+          const isToday = d.toDateString() === new Date().toDateString();
           return (
             <button
               key={i}
               disabled={disabled}
               onClick={() => onChange(iso)}
-              className={`aspect-square text-sm border transition-colors ${active ? "bg-[#B91C1C] border-[#B91C1C] text-white" : disabled ? "border-[#181818] text-[#3A3A3A] cursor-not-allowed" : "border-[#232323] hover:border-[#B91C1C] text-[#DADADA]"}`}
+              className={`relative aspect-square text-sm border rounded transition-all ${
+                active
+                  ? "bg-[#C21A1A] border-[#C21A1A] text-white font-medium"
+                  : disabled
+                    ? "border-[#141416] text-[#33333A] cursor-not-allowed"
+                    : "border-[#232327] hover:border-[#C21A1A] hover:bg-[#C21A1A]/10 text-[#D9D3C6]"
+              }`}
               data-testid={`cal-day-${iso}`}
-            >{d.getDate()}</button>
+            >
+              {d.getDate()}
+              {isToday && !active && <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#C21A1A]" />}
+            </button>
           );
         })}
       </div>
@@ -112,11 +218,15 @@ function DatePicker({ value, onChange }) {
   );
 }
 
+/* ---------------- Booking (state machine preserved) ---------------- */
 export default function Booking() {
   const nav = useNavigate();
   const [sp] = useSearchParams();
   const [step, setStep] = useState(0);
-  const [data, setData] = useState({ categoryId: null, serviceId: null, employeeId: null, date: null, time: null, name: "", phone: "", email: "", notes: "", accepted: false });
+  const [data, setData] = useState({
+    categoryId: null, serviceId: null, employeeId: null, date: null, time: null,
+    name: "", phone: "", email: "", notes: "", accepted: false,
+  });
   const [cats, setCats] = useState([]);
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -126,18 +236,25 @@ export default function Booking() {
 
   useEffect(() => {
     (async () => {
-      const [c, s, e, b] = await Promise.all([getCategories(), getServices(), getEmployees(), getBusiness()]);
+      const [c, s, e, b] = await Promise.all([
+        getCategories(), getServices(), getEmployees(), getBusiness(),
+      ]);
       setCats(c); setServices(s); setEmployees(e); setBusiness(b);
       const preService = sp.get("service");
       if (preService) {
         const svc = s.find((x) => x.id === preService);
-        if (svc) { setData((d) => ({ ...d, categoryId: svc.category_id, serviceId: svc.id })); setStep(2); }
+        if (svc) {
+          setData((d) => ({ ...d, categoryId: svc.category_id, serviceId: svc.id }));
+          setStep(2);
+        }
       }
     })();
   }, [sp]);
 
   const svc = services.find((s) => s.id === data.serviceId);
   const emp = employees.find((e) => e.id === data.employeeId);
+  const category = cats.find((c) => c.id === data.categoryId);
+
   const endTime = svc && data.time ? (() => {
     const [h, m] = data.time.split(":").map(Number);
     const total = h * 60 + m + svc.duration;
@@ -148,7 +265,11 @@ export default function Booking() {
     (async () => {
       if (step === 4 && data.employeeId && data.serviceId && data.date) {
         try {
-          const r = await getAvailability({ employee_id: data.employeeId, service_id: data.serviceId, date: data.date });
+          const r = await getAvailability({
+            employee_id: data.employeeId,
+            service_id: data.serviceId,
+            date: data.date,
+          });
           setSlots(r.slots || []);
         } catch { setSlots([]); }
       }
@@ -170,6 +291,7 @@ export default function Booking() {
 
   const next = () => { if (canNext()) setStep((s) => Math.min(STEPS.length - 1, s + 1)); };
   const back = () => setStep((s) => Math.max(0, s - 1));
+  const jumpTo = (i) => setStep(i);
 
   const submitBooking = async () => {
     setLoading(true);
@@ -178,7 +300,6 @@ export default function Booking() {
         service_id: data.serviceId, employee_id: data.employeeId, date: data.date, start_time: data.time,
         customer_name: data.name, customer_phone: data.phone, customer_email: data.email, notes: data.notes,
       });
-      // Simulate a payment step (mock mode): 900ms delay + verify
       toast.loading("Processing payment...", { id: "pay" });
       await new Promise((r) => setTimeout(r, 1200));
       const res = await verifyPayment({ booking_id: booking.id, razorpay_order_id: order.id });
@@ -186,187 +307,317 @@ export default function Booking() {
       nav(`/booking/${res.booking.id}`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Booking failed. Please try again.", { id: "pay" });
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const catServices = services.filter((s) => s.category_id === data.categoryId);
   const grouped = useMemo(() => {
     const g = {};
-    catServices.forEach((s) => { const k = s.group || "Services"; (g[k] = g[k] || []).push(s); });
+    catServices.forEach((s) => {
+      const k = s.group || "Services";
+      (g[k] = g[k] || []).push(s);
+    });
     return g;
   }, [catServices]);
+
+  const stepAnim = {
+    initial: { opacity: 0, y: 12 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -8 },
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+  };
 
   return (
     <>
       <Nav />
-      <main className="pt-32 pb-24 min-h-screen bg-[#0A0A0A]" data-testid="booking-page">
+      <main className="pt-32 md:pt-36 pb-24 md:pb-32 min-h-screen bg-[#08080A]" data-testid="booking-page">
         <div className="gx-container">
-          <div className="mb-10">
-            <p className="eyebrow mb-3">Book an Appointment</p>
-            <h1 className="font-editorial text-4xl md:text-5xl">Reserve your <span className="text-[#B91C1C]">chair.</span></h1>
+          <div className="mb-10 md:mb-14 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+            <div>
+              <Eyebrow>Book an Appointment</Eyebrow>
+              <EditorialHeading as="h1" size="md" className="mt-5">
+                Reserve your <span className="italic-accent text-[#C21A1A]">chair.</span>
+              </EditorialHeading>
+            </div>
+            <p className="text-[#8C8880] text-sm max-w-sm leading-relaxed">
+              Eight quick steps. A small deposit secures your slot — the rest is settled at the salon.
+            </p>
           </div>
 
-          <StepBar current={step} />
+          <StepRail current={step} onJump={jumpTo} allowJump />
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-10">
             <div className="lg:col-span-8">
-              {step === 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="step-category">
-                  {cats.map((c) => (
-                    <button key={c.id} onClick={() => setData({ ...data, categoryId: c.id, serviceId: null })}
-                      className={`gx-card overflow-hidden text-left ${data.categoryId === c.id ? "border-[#B91C1C]" : ""}`}
-                      data-testid={`cat-${c.slug}`}>
-                      <div className="aspect-[16/9] bg-[#161616]"><img src={c.image} alt="" className="w-full h-full object-cover opacity-90" /></div>
-                      <div className="p-5">
-                        <p className="font-display text-xl">{c.name}</p>
-                        <p className="text-[#8F8F8F] text-sm mt-1">{c.description}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {step === 1 && (
-                <div className="space-y-6" data-testid="step-service">
-                  {Object.entries(grouped).map(([g, arr]) => (
-                    <div key={g}>
-                      <p className="eyebrow mb-3">{g}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {arr.map((s) => (
-                          <button key={s.id} onClick={() => setData({ ...data, serviceId: s.id })}
-                            className={`gx-card p-4 text-left flex items-center justify-between ${data.serviceId === s.id ? "border-[#B91C1C]" : ""}`}
-                            data-testid={`svc-${s.id}`}>
-                            <div>
-                              <p className="font-display">{s.name}</p>
-                              <p className="text-xs text-[#8F8F8F] mt-1 flex items-center gap-3"><span className="flex items-center gap-1"><Clock size={12}/> {s.duration} min</span><span>₹{s.price}</span></p>
-                            </div>
-                            <p className="text-[#B91C1C] text-xs">₹{s.deposit}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {step === 2 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="step-employee">
-                  <button onClick={() => setData({ ...data, employeeId: employees[0]?.id })}
-                    className={`gx-card p-5 text-left ${employees[0] && data.employeeId === employees[0].id ? "border-[#B91C1C]" : ""}`} data-testid="emp-any">
-                    <p className="font-display flex items-center gap-2"><Sparkles size={14} className="text-[#B91C1C]" /> First Available</p>
-                    <p className="text-xs text-[#8F8F8F] mt-1">Fastest confirmation</p>
-                  </button>
-                  {employees.map((e) => (
-                    <button key={e.id} onClick={() => setData({ ...data, employeeId: e.id })}
-                      className={`gx-card p-3 text-left flex items-center gap-4 ${data.employeeId === e.id ? "border-[#B91C1C]" : ""}`}
-                      data-testid={`emp-${e.id}`}>
-                      <img src={e.photo} alt="" className="w-14 h-14 object-cover" />
-                      <div>
-                        <p className="font-display">{e.name}</p>
-                        <p className="text-xs text-[#8F8F8F]">{e.position}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {step === 3 && (
-                <div className="gx-card p-6" data-testid="step-date">
-                  <DatePicker value={data.date} onChange={(iso) => setData({ ...data, date: iso, time: null })} />
-                </div>
-              )}
-
-              {step === 4 && (
-                <div data-testid="step-time">
-                  {slots.length === 0 ? (
-                    <p className="text-[#8F8F8F] text-sm gx-card p-6">No slots available for this date. Please pick another day.</p>
-                  ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                      {slots.map((t) => (
-                        <button key={t} onClick={() => setData({ ...data, time: t })}
-                          className={`py-3 text-sm border transition-colors ${data.time === t ? "bg-[#B91C1C] border-[#B91C1C] text-white" : "border-[#232323] hover:border-[#B91C1C] text-[#DADADA]"}`}
-                          data-testid={`slot-${t}`}>{t}</button>
+              <AnimatePresence mode="wait">
+                <motion.div key={step} {...stepAnim}>
+                  {step === 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5" data-testid="step-category">
+                      {cats.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => setData({ ...data, categoryId: c.id, serviceId: null })}
+                          className={`group relative overflow-hidden border text-left gx-card-hover ${data.categoryId === c.id ? "border-[#C21A1A]" : "border-[#1B1B1E]"} bg-[#111113]`}
+                          data-testid={`cat-${c.slug}`}
+                        >
+                          <div className="aspect-[16/10] bg-[#151517] overflow-hidden relative">
+                            <img src={c.image} alt="" className="w-full h-full object-cover img-zoom opacity-90" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent" />
+                            <span className="absolute top-4 left-4"><Badge>{c.slug === "men" ? "Him" : "Her"}</Badge></span>
+                          </div>
+                          <div className="p-6">
+                            <p className="font-editorial text-3xl text-[#F2EDE4] leading-tight">{c.name}</p>
+                            <p className="text-[#8C8880] text-sm mt-2 leading-relaxed">{c.description}</p>
+                            <span className="mt-4 inline-flex items-center gap-2 text-[11px] tracking-[0.22em] uppercase text-[#C21A1A]">
+                              Choose {c.slug === "men" ? "men" : "women"} <ArrowUpRight size={12} />
+                            </span>
+                          </div>
+                        </button>
                       ))}
                     </div>
                   )}
-                </div>
-              )}
 
-              {step === 5 && (
-                <div className="gx-card p-6 space-y-4" data-testid="step-details">
-                  <div>
-                    <label className="eyebrow block mb-2">Full Name</label>
-                    <input value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })}
-                      className="w-full bg-[#0F0F0F] border border-[#232323] px-4 py-3 focus:border-[#B91C1C] outline-none"
-                      data-testid="input-name" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="eyebrow block mb-2">Phone Number</label>
-                      <input value={data.phone} onChange={(e) => setData({ ...data, phone: e.target.value })} placeholder="+91"
-                        className="w-full bg-[#0F0F0F] border border-[#232323] px-4 py-3 focus:border-[#B91C1C] outline-none"
-                        data-testid="input-phone" />
+                  {step === 1 && (
+                    <div className="space-y-8" data-testid="step-service">
+                      {Object.entries(grouped).map(([g, arr]) => (
+                        <div key={g}>
+                          <div className="flex items-center gap-3 mb-4">
+                            <span className="red-rule" />
+                            <p className="eyebrow text-[#D9D3C6]">{g}</p>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {arr.map((s) => (
+                              <button
+                                key={s.id}
+                                onClick={() => setData({ ...data, serviceId: s.id })}
+                                className={`gx-card p-4 md:p-5 text-left flex items-start justify-between gap-4 rounded-sm ${data.serviceId === s.id ? "border-[#C21A1A] bg-[#150A0A]" : ""}`}
+                                data-testid={`svc-${s.id}`}
+                              >
+                                <div className="min-w-0">
+                                  <p className="font-editorial text-lg text-[#F2EDE4] leading-tight">{s.name}</p>
+                                  <p className="text-[11px] text-[#8C8880] mt-2 flex items-center gap-3 tracking-widest uppercase">
+                                    <span className="flex items-center gap-1"><Clock size={11} />{s.duration}m</span>
+                                    <span className="opacity-40">/</span>
+                                    <span>Total ₹{s.price.toLocaleString()}</span>
+                                  </p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[10px] uppercase tracking-widest text-[#8C8880]">Deposit</p>
+                                  <p className="font-editorial text-xl text-[#C21A1A] mt-1">₹{s.deposit.toLocaleString()}</p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <label className="eyebrow block mb-2">Email (optional)</label>
-                      <input value={data.email} onChange={(e) => setData({ ...data, email: e.target.value })}
-                        className="w-full bg-[#0F0F0F] border border-[#232323] px-4 py-3 focus:border-[#B91C1C] outline-none"
-                        data-testid="input-email" />
+                  )}
+
+                  {step === 2 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="step-employee">
+                      <button
+                        onClick={() => setData({ ...data, employeeId: employees[0]?.id })}
+                        className={`gx-card p-6 text-left ${employees[0] && data.employeeId === employees[0].id ? "border-[#C21A1A] bg-[#150A0A]" : ""}`}
+                        data-testid="emp-any"
+                      >
+                        <div className="w-10 h-10 rounded-full border border-[#C21A1A] flex items-center justify-center mb-4">
+                          <Sparkles size={14} className="text-[#C21A1A]" />
+                        </div>
+                        <p className="font-editorial text-xl text-[#F2EDE4]">First Available</p>
+                        <p className="text-xs text-[#8C8880] mt-2">Fastest confirmation · any expert.</p>
+                      </button>
+                      {employees.map((e) => (
+                        <button
+                          key={e.id}
+                          onClick={() => setData({ ...data, employeeId: e.id })}
+                          className={`gx-card p-3 text-left flex items-center gap-4 ${data.employeeId === e.id ? "border-[#C21A1A] bg-[#150A0A]" : ""}`}
+                          data-testid={`emp-${e.id}`}
+                        >
+                          <img src={e.photo} alt="" className="w-16 h-16 object-cover rounded-sm shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-editorial text-lg text-[#F2EDE4] leading-tight">{e.name}</p>
+                            <p className="text-[11px] text-[#8C8880] tracking-widest uppercase mt-1">{e.position}</p>
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                  <div>
-                    <label className="eyebrow block mb-2">Notes (optional)</label>
-                    <textarea rows={3} value={data.notes} onChange={(e) => setData({ ...data, notes: e.target.value })}
-                      className="w-full bg-[#0F0F0F] border border-[#232323] px-4 py-3 focus:border-[#B91C1C] outline-none resize-none"
-                      data-testid="input-notes" />
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {step === 6 && svc && (
-                <div className="gx-card p-8 space-y-6" data-testid="step-review">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm">
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Service</p><p>{svc.name}</p></div>
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Professional</p><p>{emp?.name}</p></div>
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Duration</p><p>{svc.duration} min</p></div>
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Date</p><p>{data.date}</p></div>
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Time</p><p>{data.time} – {endTime}</p></div>
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Name</p><p>{data.name}</p></div>
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Phone</p><p>{data.phone}</p></div>
-                    {data.email && <div><p className="text-[#8F8F8F] text-xs mb-1">Email</p><p>{data.email}</p></div>}
-                  </div>
-                  <div className="border-t border-[#1e1e1e] pt-4 grid grid-cols-3 gap-6 text-sm">
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Total</p><p className="font-display text-lg">₹{svc.price.toLocaleString()}</p></div>
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Deposit today</p><p className="font-display text-lg text-[#B91C1C]">₹{svc.deposit.toLocaleString()}</p></div>
-                    <div><p className="text-[#8F8F8F] text-xs mb-1">Pay at salon</p><p className="font-display text-lg">₹{(svc.price - svc.deposit).toLocaleString()}</p></div>
-                  </div>
-                  <label className="flex items-start gap-3 text-sm text-[#B9B9B9]" data-testid="accept-terms">
-                    <input type="checkbox" checked={data.accepted} onChange={(e) => setData({ ...data, accepted: e.target.checked })} className="mt-1 accent-[#B91C1C]" />
-                    <span>I agree to the <a href="/terms" className="text-white underline">Terms & Conditions</a>, deposit and cancellation policy. Deposits are adjusted against the final bill.</span>
-                  </label>
-                </div>
-              )}
+                  {step === 3 && (
+                    <div className="gx-panel p-6 md:p-8" data-testid="step-date">
+                      <DatePicker value={data.date} onChange={(iso) => setData({ ...data, date: iso, time: null })} />
+                    </div>
+                  )}
 
-              {step === 7 && svc && (
-                <div className="gx-card p-8 text-center" data-testid="step-payment">
-                  <ShieldCheck size={40} className="mx-auto text-[#B91C1C] mb-4" />
-                  <p className="font-display text-2xl">Confirm & Pay Deposit</p>
-                  <p className="text-[#8F8F8F] text-sm mt-2 max-w-md mx-auto">
-                    A small booking deposit of <span className="text-white">₹{svc.deposit.toLocaleString()}</span> secures your appointment. The rest is paid at the salon.
-                  </p>
-                  <button onClick={submitBooking} disabled={loading} className="btn-red mt-8 mx-auto" data-testid="pay-now">
-                    {loading ? "Processing…" : (<>Pay ₹{svc.deposit.toLocaleString()} <ArrowRight size={14} /></>)}
-                  </button>
-                  <p className="text-[10px] text-[#6F6F6F] mt-6 tracking-widest uppercase">Powered by Razorpay · 256-bit secure</p>
-                </div>
-              )}
+                  {step === 4 && (
+                    <div data-testid="step-time">
+                      <div className="flex items-center gap-3 mb-5">
+                        <span className="red-rule" />
+                        <p className="eyebrow text-[#D9D3C6]">Available slots · {data.date}</p>
+                      </div>
+                      {slots.length === 0 ? (
+                        <div className="gx-panel p-8 text-center">
+                          <Info size={20} className="mx-auto text-[#C21A1A] mb-3" />
+                          <p className="font-editorial text-xl text-[#F2EDE4]">No slots available.</p>
+                          <p className="text-[#8C8880] text-sm mt-2">Please pick another day — our stylist is fully booked.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 md:gap-3">
+                          {slots.map((t) => (
+                            <button
+                              key={t}
+                              onClick={() => setData({ ...data, time: t })}
+                              className={`py-3.5 text-sm border rounded transition-all ${
+                                data.time === t
+                                  ? "bg-[#C21A1A] border-[#C21A1A] text-white font-medium"
+                                  : "border-[#232327] hover:border-[#C21A1A] hover:bg-[#C21A1A]/10 text-[#D9D3C6]"
+                              }`}
+                              data-testid={`slot-${t}`}
+                            >{t}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-              <div className="mt-8 flex items-center justify-between">
-                <button onClick={back} disabled={step === 0} className="btn-ghost disabled:opacity-40" data-testid="btn-back">
+                  {step === 5 && (
+                    <div className="gx-panel p-6 md:p-8 space-y-5" data-testid="step-details">
+                      <div>
+                        <label className="eyebrow block mb-3">Full Name</label>
+                        <input
+                          value={data.name}
+                          onChange={(e) => setData({ ...data, name: e.target.value })}
+                          placeholder="Your name"
+                          className="gx-input"
+                          data-testid="input-name"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="eyebrow block mb-3">Phone Number</label>
+                          <input
+                            value={data.phone}
+                            onChange={(e) => setData({ ...data, phone: e.target.value })}
+                            placeholder="+91 98765 43210"
+                            className="gx-input"
+                            data-testid="input-phone"
+                          />
+                        </div>
+                        <div>
+                          <label className="eyebrow block mb-3">Email <span className="text-[#6E6A62] normal-case tracking-normal">(optional)</span></label>
+                          <input
+                            value={data.email}
+                            onChange={(e) => setData({ ...data, email: e.target.value })}
+                            placeholder="you@example.com"
+                            className="gx-input"
+                            data-testid="input-email"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="eyebrow block mb-3">Notes <span className="text-[#6E6A62] normal-case tracking-normal">(optional)</span></label>
+                        <textarea
+                          rows={3}
+                          value={data.notes}
+                          onChange={(e) => setData({ ...data, notes: e.target.value })}
+                          placeholder="Any preferences, allergies or requests"
+                          className="gx-input resize-none"
+                          data-testid="input-notes"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {step === 6 && svc && (
+                    <div className="gx-panel p-6 md:p-10 space-y-8" data-testid="step-review">
+                      <div>
+                        <Eyebrow>Review</Eyebrow>
+                        <p className="font-editorial text-3xl md:text-4xl text-[#F2EDE4] mt-3">One last look before we confirm.</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm">
+                        <ReviewField label="Service" value={svc.name} />
+                        <ReviewField label="Professional" value={emp?.name} />
+                        <ReviewField label="Duration" value={`${svc.duration} min`} />
+                        <ReviewField label="Date" value={data.date} />
+                        <ReviewField label="Time" value={`${data.time} – ${endTime}`} />
+                        <ReviewField label="Name" value={data.name} />
+                        <ReviewField label="Phone" value={data.phone} />
+                        {data.email && <ReviewField label="Email" value={data.email} />}
+                      </div>
+
+                      <div className="border-t border-[#1D1D20] pt-6 grid grid-cols-3 gap-6 text-sm">
+                        <div>
+                          <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Total</p>
+                          <p className="font-editorial text-2xl text-[#F2EDE4]">₹{svc.price.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Deposit today</p>
+                          <p className="font-editorial text-2xl text-[#C21A1A]">₹{svc.deposit.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Pay at salon</p>
+                          <p className="font-editorial text-2xl text-[#D9D3C6]">₹{(svc.price - svc.deposit).toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      <label className="flex items-start gap-3 text-sm text-[#B9B5AB] cursor-pointer" data-testid="accept-terms">
+                        <input
+                          type="checkbox"
+                          checked={data.accepted}
+                          onChange={(e) => setData({ ...data, accepted: e.target.checked })}
+                          className="mt-1 accent-[#C21A1A] w-4 h-4"
+                        />
+                        <span>I agree to the <a href="/terms" className="text-[#F2EDE4] underline underline-offset-4 decoration-[#C21A1A]">Terms &amp; Conditions</a>, deposit and cancellation policy. Deposits are adjusted against the final bill.</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {step === 7 && svc && (
+                    <div className="gx-panel p-8 md:p-12 text-center" data-testid="step-payment">
+                      <div className="w-14 h-14 mx-auto rounded-full border border-[#C21A1A] flex items-center justify-center mb-6">
+                        <ShieldCheck size={22} className="text-[#C21A1A]" />
+                      </div>
+                      <Eyebrow className="justify-center">Confirm &amp; Pay</Eyebrow>
+                      <p className="font-editorial text-3xl md:text-4xl text-[#F2EDE4] mt-4">A small deposit secures your slot.</p>
+                      <p className="text-[#8C8880] text-sm mt-4 max-w-md mx-auto leading-relaxed">
+                        You&apos;ll pay <span className="text-[#F2EDE4]">₹{svc.deposit.toLocaleString()}</span> today. The remaining <span className="text-[#F2EDE4]">₹{(svc.price - svc.deposit).toLocaleString()}</span> is settled at the salon after your service.
+                      </p>
+                      <button
+                        onClick={submitBooking}
+                        disabled={loading}
+                        className="btn-red mt-10 mx-auto disabled:opacity-60"
+                        data-testid="pay-now"
+                      >
+                        {loading ? (
+                          <>Processing<span className="inline-block ml-1 animate-pulse">…</span></>
+                        ) : (
+                          <>Pay ₹{svc.deposit.toLocaleString()} <ArrowRight size={14} /></>
+                        )}
+                      </button>
+                      <p className="text-[10px] text-[#6E6A62] mt-8 tracking-[0.28em] uppercase">Powered by Razorpay · 256-bit secure</p>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+
+              <div className="mt-10 flex items-center justify-between">
+                <button
+                  onClick={back}
+                  disabled={step === 0}
+                  className="btn-ghost disabled:opacity-30 disabled:cursor-not-allowed"
+                  data-testid="btn-back"
+                >
                   <ArrowLeft size={14} /> Back
                 </button>
                 {step < 7 && (
-                  <button onClick={next} disabled={!canNext()} className="btn-red disabled:opacity-40" data-testid="btn-next">
+                  <button
+                    onClick={next}
+                    disabled={!canNext()}
+                    className="btn-red disabled:opacity-30 disabled:cursor-not-allowed"
+                    data-testid="btn-next"
+                  >
                     {step === 6 ? "Proceed to Payment" : "Continue"} <ArrowRight size={14} />
                   </button>
                 )}
@@ -374,12 +625,21 @@ export default function Booking() {
             </div>
 
             <div className="lg:col-span-4">
-              <Summary svc={svc} emp={emp} date={data.date} time={data.time} endTime={endTime} />
+              <Summary svc={svc} emp={emp} date={data.date} time={data.time} endTime={endTime} category={category?.name} />
             </div>
           </div>
         </div>
       </main>
       <Footer business={business} />
     </>
+  );
+}
+
+function ReviewField({ label, value }) {
+  return (
+    <div>
+      <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">{label}</p>
+      <p className="text-[#F2EDE4]">{value}</p>
+    </div>
   );
 }
