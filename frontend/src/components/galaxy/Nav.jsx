@@ -38,9 +38,21 @@ export default function Nav() {
       data-testid="site-nav"
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "bg-[#08080A]/85 backdrop-blur-md border-b border-[#17171A]" : "bg-gradient-to-b from-black/60 to-transparent"}`}
     >
-      <div className="gx-container flex items-center justify-between h-20 md:h-24">
-        <Link to="/" data-testid="nav-logo" className="flex items-center gap-3" aria-label="Galaxy — Home">
-          <BrandMark variant="logo" size={scrolled ? "sm" : "md"} />
+      <div className={`gx-container flex items-center justify-between transition-[height] duration-500 ${scrolled ? "h-20 md:h-24" : "h-24 md:h-28"}`}>
+        <Link
+          to="/"
+          data-testid="nav-logo"
+          className="group flex items-center gap-4 -ml-1"
+          aria-label="Galaxy — Home"
+        >
+          <BrandMark variant="logo" size={scrolled ? "md" : "lg"} className="transition-all duration-500" />
+          <span
+            aria-hidden
+            className={`hidden md:block w-px bg-[#26262A] transition-all duration-500 ${scrolled ? "h-8 opacity-100" : "h-0 opacity-0"}`}
+          />
+          <span className={`hidden md:inline-block text-[10px] tracking-[0.32em] uppercase text-[#8C8880] transition-all duration-500 ${scrolled ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 pointer-events-none absolute"}`}>
+            Hair · Beauty · Style
+          </span>
         </Link>
 
         <nav className="hidden lg:flex items-center gap-9" aria-label="Primary">
@@ -75,7 +87,7 @@ export default function Nav() {
 
       {/* Mobile full-screen editorial overlay */}
       <div
-        className={`lg:hidden fixed inset-0 top-20 bg-[#08080A] transition-all duration-500 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        className={`lg:hidden fixed inset-0 top-24 bg-[#08080A] transition-all duration-500 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         data-testid="nav-mobile"
         aria-hidden={!open}
       >

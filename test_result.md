@@ -231,3 +231,29 @@ agent_communication:
       Every existing data-testid preserved. Every API call preserved. Booking state machine
       preserved 1:1. Lint clean on all new/modified files.
       Awaiting user go-ahead to invoke frontend testing agent for full flow verification.
+
+  - agent: "main"
+    message: |
+      Phase 1.5 polish pass complete. Five focused refinements shipped, backend still untouched:
+      (1) Logo integration in Nav — bigger logo (h-16/h-20), vertical divider + "Hair · Beauty · Style"
+          secondary label appear on scroll for a framed brand block feel.
+      (2) Hero overlap fix — moved the "EST. AGARTALA — HAIR · BEAUTY · STYLE" strip out of the
+          absolute-positioned overlay and into a dedicated **masthead line** at the very top of the
+          hero section (below the fixed nav), with slide counter "01 / 04" on the right. Because the
+          masthead is pinned to the top of the flex column and the content is pinned to the bottom,
+          overlap is architecturally impossible — verified with slide 3 (long "From routine to
+          remarkable." headline) at 1280 and 1440 laptop widths.
+      (3) Booking service cards — added service.image thumbnail (already in existing API, no backend
+          change), redesigned layout to image | name+meta | deposit, with a distinct selected state
+          (crimson border, tinted background, gradient overlay, "✓ Selected" indicator).
+      (4) Admin polish — rewrote all 8 admin files using the public design system: sidebar with
+          integrated logo + "Manage" section label + crimson rail on active nav, refined stat cards
+          with circular icon frames, editorial page headings with italic accents, "gx-input" fields,
+          rounded status pills, tinted hover rows, refined tables with eyebrow-styled headers.
+      (5) General polish — consistent card border colors, unified image treatments, refined pill
+          buttons, refined focus rings.
+      Zero backend changes. Every workflow preserved. Every data-testid retained. Lint clean on my
+      code (3 pre-existing errors remain in shadcn/ui/calendar.jsx & command.jsx that I did not
+      touch). Screenshots verify hero, services bento, booking wizard with images, selected state,
+      admin login, admin dashboard, admin bookings, admin settings all render as intended at 1280
+      and 1440 viewports.

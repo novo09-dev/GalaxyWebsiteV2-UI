@@ -387,27 +387,55 @@ export default function Booking() {
                             <p className="eyebrow text-[#D9D3C6]">{g}</p>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {arr.map((s) => (
-                              <button
-                                key={s.id}
-                                onClick={() => setData({ ...data, serviceId: s.id })}
-                                className={`gx-card p-4 md:p-5 text-left flex items-start justify-between gap-4 rounded-sm ${data.serviceId === s.id ? "border-[#C21A1A] bg-[#150A0A]" : ""}`}
-                                data-testid={`svc-${s.id}`}
-                              >
-                                <div className="min-w-0">
-                                  <p className="font-editorial text-lg text-[#F2EDE4] leading-tight">{s.name}</p>
-                                  <p className="text-[11px] text-[#8C8880] mt-2 flex items-center gap-3 tracking-widest uppercase">
-                                    <span className="flex items-center gap-1"><Clock size={11} />{s.duration}m</span>
-                                    <span className="opacity-40">/</span>
-                                    <span>Total ₹{s.price.toLocaleString()}</span>
-                                  </p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="text-[10px] uppercase tracking-widest text-[#8C8880]">Deposit</p>
-                                  <p className="font-editorial text-xl text-[#C21A1A] mt-1">₹{s.deposit.toLocaleString()}</p>
-                                </div>
-                              </button>
-                            ))}
+                            {arr.map((s) => {
+                              const selected = data.serviceId === s.id;
+                              return (
+                                <button
+                                  key={s.id}
+                                  onClick={() => setData({ ...data, serviceId: s.id })}
+                                  className={`group relative overflow-hidden text-left flex items-stretch gap-0 border transition-all duration-300 ${selected ? "border-[#C21A1A] bg-[#150A0A] shadow-[0_10px_40px_-20px_rgba(194,26,26,0.4)]" : "border-[#1B1B1E] bg-[#111113] hover:border-[#2E2E33]"}`}
+                                  data-testid={`svc-${s.id}`}
+                                  aria-pressed={selected}
+                                >
+                                  {s.image ? (
+                                    <div className="relative w-24 md:w-28 shrink-0 overflow-hidden bg-[#151517]">
+                                      <img
+                                        src={s.image}
+                                        alt=""
+                                        className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${selected ? "scale-[1.05]" : "opacity-90 group-hover:opacity-100 group-hover:scale-[1.04]"}`}
+                                        loading="lazy"
+                                      />
+                                      <div className={`absolute inset-0 transition-opacity duration-300 ${selected ? "bg-gradient-to-r from-[#C21A1A]/40 to-transparent" : "bg-gradient-to-r from-black/40 to-transparent"}`} />
+                                    </div>
+                                  ) : (
+                                    <div className="w-24 md:w-28 shrink-0 bg-[#151517] flex items-center justify-center">
+                                      <Sparkles size={16} className="text-[#26262A]" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0 flex items-start justify-between gap-3 p-4 md:p-5">
+                                    <div className="min-w-0">
+                                      <p className={`font-editorial text-lg md:text-xl leading-tight transition-colors ${selected ? "text-[#F2EDE4]" : "text-[#F2EDE4]"}`}>
+                                        {s.name}
+                                      </p>
+                                      <p className="text-[11px] text-[#8C8880] mt-2 flex items-center gap-2 md:gap-3 tracking-widest uppercase flex-wrap">
+                                        <span className="flex items-center gap-1"><Clock size={11} />{s.duration}m</span>
+                                        <span className="opacity-40">/</span>
+                                        <span>Total ₹{s.price.toLocaleString()}</span>
+                                      </p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <p className="text-[9px] uppercase tracking-widest text-[#8C8880]">Deposit</p>
+                                      <p className="font-editorial text-xl md:text-2xl text-[#C21A1A] mt-1 leading-none">₹{s.deposit.toLocaleString()}</p>
+                                      {selected && (
+                                        <span className="inline-flex items-center gap-1 mt-2 text-[10px] tracking-widest uppercase text-[#C21A1A]">
+                                          <Check size={11} /> Selected
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       ))}

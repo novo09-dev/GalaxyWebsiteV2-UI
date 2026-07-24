@@ -32,13 +32,18 @@ function Hero({ slides }) {
   }, [slides]);
   if (!slides?.length) {
     return (
-      <section id="top" className="relative h-[100vh] min-h-[640px] bg-[#08080A]" data-testid="hero-section" />
+      <section id="top" className="relative h-[100vh] min-h-[720px] bg-[#08080A]" data-testid="hero-section" />
     );
   }
   const slide = slides[i];
 
   return (
-    <section id="top" className="relative h-[100vh] min-h-[680px] overflow-hidden bg-black" data-testid="hero-section">
+    <section
+      id="top"
+      className="relative h-[100vh] min-h-[720px] overflow-hidden bg-black flex flex-col"
+      data-testid="hero-section"
+    >
+      {/* Background slides */}
       {slides.map((s, idx) => (
         <div key={s.id || idx} className={`hero-slide ${idx === i ? "active" : ""}`} aria-hidden={idx !== i}>
           <img
@@ -52,23 +57,32 @@ function Hero({ slides }) {
         </div>
       ))}
 
-      {/* Corner brand tag */}
-      <div className="absolute top-28 md:top-32 left-0 right-0 z-10">
-        <div className="gx-container flex items-center justify-between">
-          <Eyebrow tone="cream">Est. Agartala — Hair · Beauty · Style</Eyebrow>
-          <span className="hidden md:inline eyebrow text-[#D9D3C6]/60">{String(i + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}</span>
+      {/* Masthead strip — pinned below fixed nav, cannot collide with content */}
+      <div className="relative z-10 pt-28 md:pt-32">
+        <div className="gx-container">
+          <div className="flex items-center justify-between pb-4 md:pb-5 border-b border-white/10">
+            <span className="flex items-center gap-3 text-[10px] md:text-[11px] tracking-[0.32em] uppercase text-[#D9D3C6]/80">
+              <span className="red-rule" />
+              <span className="hidden sm:inline">Est. Agartala · Hair · Beauty · Style</span>
+              <span className="sm:hidden">Agartala · Since 2018</span>
+            </span>
+            <span className="text-[10px] md:text-[11px] tracking-[0.32em] uppercase text-[#D9D3C6]/70 tabular-nums">
+              {String(i + 1).padStart(2, "0")} <span className="opacity-40 mx-1">/</span> {String(slides.length).padStart(2, "0")}
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="relative z-10 h-full flex items-end pb-16 md:pb-24">
+      {/* Bottom-anchored content */}
+      <div className="relative z-10 flex-1 flex items-end pb-16 md:pb-24">
         <div className="gx-container w-full grid grid-cols-12 gap-6 md:gap-10 items-end">
           <div className="col-span-12 lg:col-span-8">
-            <p className="eyebrow-lg mb-6" data-testid="hero-chapter">
+            <p className="eyebrow-lg mb-5 md:mb-6" data-testid="hero-chapter">
               <span className="red-rule-lg mr-4" />
               {slide?.chapter}
             </p>
             <h1
-              className="font-editorial text-[3rem] sm:text-6xl md:text-7xl lg:text-8xl xl:text-[8.5rem] leading-[0.95] tracking-[-0.02em] text-[#F2EDE4] max-w-[18ch]"
+              className="font-editorial text-[2.75rem] sm:text-6xl md:text-7xl lg:text-8xl xl:text-[8.5rem] leading-[0.95] tracking-[-0.02em] text-[#F2EDE4] max-w-[18ch]"
               data-testid="hero-headline"
             >
               {slide?.headline}
@@ -76,7 +90,7 @@ function Hero({ slides }) {
             <p className="mt-6 md:mt-8 text-[#D9D3C6] max-w-xl leading-relaxed text-base md:text-lg">
               {slide?.description}
             </p>
-            <div className="mt-10 flex flex-wrap items-center gap-4">
+            <div className="mt-8 md:mt-10 flex flex-wrap items-center gap-3 md:gap-4">
               <Link to="/book" className="btn-red" data-testid="hero-book-cta">
                 Book an Appointment <ArrowUpRight size={14} />
               </Link>
@@ -84,7 +98,7 @@ function Hero({ slides }) {
             </div>
           </div>
 
-          {/* Slide rail */}
+          {/* Slide rail (desktop) */}
           <div className="hidden lg:flex col-span-4 justify-end items-end">
             <div className="flex flex-col gap-4 w-56">
               {slides.map((s, idx) => (
@@ -117,8 +131,8 @@ function Hero({ slides }) {
         </div>
       </div>
 
-      {/* Scroll cue */}
-      <div className="hidden md:flex absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 text-[#F2EDE4]/60">
+      {/* Scroll cue (large screens only, safely off content) */}
+      <div className="hidden xl:flex absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex-col items-center gap-2 text-[#F2EDE4]/60 pointer-events-none">
         <span className="text-[10px] tracking-[0.32em] uppercase">Scroll</span>
         <span className="w-px h-8 bg-[#F2EDE4]/30" />
       </div>

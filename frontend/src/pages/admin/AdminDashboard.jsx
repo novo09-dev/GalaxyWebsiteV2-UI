@@ -1,17 +1,51 @@
 import { useEffect, useState } from "react";
 import { adminStats, adminBookings } from "../../lib/api";
-import { CalendarCheck, IndianRupee, Users, Clock, TrendingUp } from "lucide-react";
+import { CalendarCheck, IndianRupee, Users, TrendingUp } from "lucide-react";
 
-const Stat = ({ label, value, sub, icon: Icon }) => (
-  <div className="gx-card p-6" data-testid={`stat-${label.toLowerCase().replace(/\s+/g, '-')}`}>
-    <div className="flex items-center justify-between mb-4">
-      <p className="eyebrow">{label}</p>
-      <Icon size={16} className="text-[#B91C1C]" />
+function PageHeader({ eyebrow, title, accent, action }) {
+  return (
+    <div className="mb-10 md:mb-12 flex items-end justify-between gap-6 flex-wrap">
+      <div>
+        <p className="eyebrow mb-3">{eyebrow}</p>
+        <h1 className="font-editorial text-4xl md:text-5xl text-[#F2EDE4] leading-tight">
+          {title}{accent && <> <span className="italic-accent text-[#C21A1A]">{accent}</span></>}
+        </h1>
+      </div>
+      {action}
     </div>
-    <p className="font-editorial text-4xl">{value}</p>
-    {sub && <p className="text-xs text-[#8F8F8F] mt-2">{sub}</p>}
+  );
+}
+
+const Stat = ({ label, value, sub, Icon }) => (
+  <div
+    className="gx-panel p-6 md:p-7 hover:border-[#26262A] transition-colors"
+    data-testid={`stat-${label.toLowerCase().replace(/\s+/g, '-')}`}
+  >
+    <div className="flex items-start justify-between mb-6">
+      <p className="eyebrow">{label}</p>
+      <span className="w-9 h-9 rounded-full border border-[#26262A] flex items-center justify-center">
+        <Icon size={14} className="text-[#C21A1A]" strokeWidth={1.5} />
+      </span>
+    </div>
+    <p className="font-editorial text-4xl md:text-5xl text-[#F2EDE4] leading-none">{value}</p>
+    {sub && <p className="text-xs text-[#8C8880] mt-3">{sub}</p>}
   </div>
 );
+
+function StatusPill({ status }) {
+  const map = {
+    confirmed: "border-[#C21A1A]/50 text-[#F0BEBE] bg-[#C21A1A]/10",
+    completed: "border-[#2A2A2E] text-[#D9D3C6] bg-[#111113]",
+    pending: "border-[#2A2A2E] text-[#8C8880] bg-transparent",
+    cancelled: "border-[#2A2A2E] text-[#6E6A62] bg-transparent",
+    no_show: "border-[#2A2A2E] text-[#6E6A62] bg-transparent",
+  };
+  return (
+    <span className={`inline-flex items-center text-[10px] tracking-[0.22em] uppercase px-2.5 py-1 border rounded-full ${map[status] || map.pending}`}>
+      {status}
+    </span>
+  );
+}
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
@@ -25,48 +59,64 @@ export default function AdminDashboard() {
     })();
   }, []);
 
-  if (!stats) return <p className="text-[#8F8F8F]">Loading…</p>;
+  if (!stats) {
+    return (
+      <div className="flex items-center gap-3 text-[#8C8880]">
+        <span className="w-4 h-4 border border-[#26262A] border-t-[#C21A1A] rounded-full animate-spin" />
+        <span className="eyebrow">Loading dashboard</span>
+      </div>
+    );
+  }
 
   return (
     <div data-testid="admin-dashboard">
-      <div className="mb-10">
-        <p className="eyebrow mb-2">Overview</p>
-        <h1 className="font-editorial text-4xl">Today at Galaxy.</h1>
+      <PageHeader eyebrow="Overview" title="Today at" accent="Galaxy." />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 mb-10">
+        <Stat label="Today's Bookings" value={stats.today_bookings} sub={`${stats.pending} pending`} Icon={CalendarCheck} />
+        <Stat label="Today's Revenue" value={`₹${stats.today_revenue.toLocaleString()}`} sub="Deposits captured" Icon={IndianRupee} />
+        <Stat label="Total Customers" value={stats.customers} sub="Unique profiles" Icon={Users} />
+        <Stat label="Total Bookings" value={stats.total_bookings} sub={`${stats.completed} completed`} Icon={TrendingUp} />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        <Stat label="Today's Bookings" value={stats.today_bookings} sub={`${stats.pending} pending`} icon={CalendarCheck} />
-        <Stat label="Today's Revenue" value={`₹${stats.today_revenue.toLocaleString()}`} sub="Deposits captured" icon={IndianRupee} />
-        <Stat label="Total Customers" value={stats.customers} sub="Unique profiles" icon={Users} />
-        <Stat label="Total Bookings" value={stats.total_bookings} sub={`${stats.completed} completed`} icon={TrendingUp} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 gx-card p-6">
-          <p className="eyebrow mb-4">Recent Bookings</p>
-          <div className="divide-y divide-[#1e1e1e]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-5">
+        <div className="lg:col-span-2 gx-panel p-6 md:p-7">
+          <div className="flex items-center justify-between mb-6">
+            <p className="eyebrow">Recent Bookings</p>
+            <span className="text-[10px] tracking-widest uppercase text-[#6E6A62]">Live</span>
+          </div>
+          <div className="divide-y divide-[#1B1B1E]">
             {recent.map((b) => (
-              <div key={b.id} className="py-3 flex items-center justify-between text-sm">
-                <div>
-                  <p className="text-white">{b.customer_name} <span className="text-[#8F8F8F]">· {b.service_name}</span></p>
-                  <p className="text-xs text-[#8F8F8F] mt-1">{b.date} · {b.start_time} · with {b.employee_name}</p>
+              <div key={b.id} className="py-4 flex items-center justify-between gap-4 text-sm">
+                <div className="min-w-0">
+                  <p className="text-[#F2EDE4] font-medium">
+                    {b.customer_name}
+                    <span className="text-[#6E6A62] font-normal"> · {b.service_name}</span>
+                  </p>
+                  <p className="text-[11px] text-[#8C8880] mt-1 tracking-wide">
+                    {b.date} · {b.start_time} · with {b.employee_name}
+                  </p>
                 </div>
-                <span className={`text-[10px] tracking-widest uppercase px-2 py-1 border ${b.status === 'confirmed' ? 'border-[#B91C1C] text-[#B91C1C]' : 'border-[#2a2a2a] text-[#8F8F8F]'}`}>{b.status}</span>
+                <StatusPill status={b.status} />
               </div>
             ))}
-            {recent.length === 0 && <p className="text-[#8F8F8F] text-sm py-6">No bookings yet.</p>}
+            {recent.length === 0 && <p className="text-[#8C8880] text-sm py-8 text-center">No bookings yet.</p>}
           </div>
         </div>
-        <div className="gx-card p-6">
-          <p className="eyebrow mb-4">Popular Services</p>
+
+        <div className="gx-panel p-6 md:p-7">
+          <p className="eyebrow mb-6">Popular Services</p>
           <ul className="space-y-3 text-sm">
             {stats.popular_services.map((p, i) => (
-              <li key={i} className="flex justify-between border-b border-[#181818] pb-2">
-                <span>{p.name}</span>
-                <span className="text-[#B91C1C]">{p.count}</span>
+              <li key={i} className="flex justify-between items-center border-b border-[#1B1B1E] pb-3 last:border-0">
+                <span className="flex items-center gap-3">
+                  <span className="num-tag">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="text-[#F2EDE4]">{p.name}</span>
+                </span>
+                <span className="font-editorial text-lg text-[#C21A1A]">{p.count}</span>
               </li>
             ))}
-            {stats.popular_services.length === 0 && <p className="text-[#8F8F8F]">Not enough data yet.</p>}
+            {stats.popular_services.length === 0 && <p className="text-[#8C8880] text-sm py-4">Not enough data yet.</p>}
           </ul>
         </div>
       </div>

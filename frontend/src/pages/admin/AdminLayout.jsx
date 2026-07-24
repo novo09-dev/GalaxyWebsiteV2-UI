@@ -1,6 +1,10 @@
 import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
-import { useEffect } from "react";
-import { LayoutDashboard, CalendarCheck, ScissorsSquare, UsersRound, UserCircle2, ImageIcon, Settings, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  LayoutDashboard, CalendarCheck, ScissorsSquare, UsersRound, UserCircle2,
+  ImageIcon, Settings, LogOut, ExternalLink, Menu,
+} from "lucide-react";
+import BrandMark from "../../components/galaxy/primitives/BrandMark";
 
 const ITEMS = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -12,8 +16,60 @@ const ITEMS = [
   { to: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
+function SidebarContent({ onNavigate, onLogout }) {
+  return (
+    <div className="h-full flex flex-col justify-between p-6 lg:p-7">
+      <div>
+        <Link to="/" className="flex items-center gap-3 mb-10" aria-label="Galaxy home">
+          <BrandMark variant="logo" size="md" />
+        </Link>
+
+        <p className="eyebrow mb-4">Manage</p>
+        <nav className="space-y-1">
+          {ITEMS.map((it) => {
+            const Icon = it.icon;
+            return (
+              <NavLink
+                key={it.to}
+                to={it.to}
+                end={it.end}
+                onClick={onNavigate}
+                className={({ isActive }) => `relative flex items-center gap-3 pl-4 pr-3 py-2.5 text-sm rounded-md transition-all duration-200 ${
+                  isActive
+                    ? "bg-[#150A0A] text-[#F2EDE4]"
+                    : "text-[#8C8880] hover:text-[#F2EDE4] hover:bg-[#111113]"
+                }`}
+                data-testid={`admin-nav-${it.label.toLowerCase()}`}
+              >
+                {({ isActive }) => (
+                  <>
+                    <span aria-hidden className={`absolute left-0 top-2 bottom-2 w-[2px] rounded-full transition-all ${isActive ? "bg-[#C21A1A]" : "bg-transparent"}`} />
+                    <Icon size={15} className={isActive ? "text-[#C21A1A]" : "text-[#6E6A62]"} />
+                    <span className="tracking-[0.06em]">{it.label}</span>
+                  </>
+                )}
+              </NavLink>
+            );
+          })}
+        </nav>
+      </div>
+
+      <div className="space-y-3">
+        <Link to="/" target="_blank" rel="noreferrer" className="pill-link w-full justify-center">
+          View site <ExternalLink size={11} />
+        </Link>
+        <button onClick={onLogout} className="flex items-center gap-2 text-xs text-[#8C8880] hover:text-[#F2EDE4] transition-colors px-1" data-testid="admin-logout">
+          <LogOut size={13} /> Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminLayout() {
   const nav = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   useEffect(() => {
     const t = localStorage.getItem("galaxy_admin_token");
     if (!t) nav("/admin/login");
@@ -25,38 +81,32 @@ export default function AdminLayout() {
     nav("/admin/login");
   };
 
+  const closeMobile = () => setMobileOpen(false);
+
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex" data-testid="admin-layout">
-      <aside className="w-64 border-r border-[#1a1a1a] p-6 hidden md:flex flex-col justify-between">
-        <div>
-          <Link to="/" className="flex items-center mb-10">
-            <img
-              src="https://customer-assets-v7afamib.emergentagent.net/job_appointment-hub-969/artifacts/9d3zwini_Brand%20logo.png"
-              alt="Galaxy"
-              className="h-14 w-auto"
-            />
-          </Link>
-          <nav className="space-y-1">
-            {ITEMS.map((it) => (
-              <NavLink key={it.to} to={it.to} end={it.end}
-                className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 text-sm border-l-2 transition-colors ${isActive ? "border-[#B91C1C] text-white bg-[#141414]" : "border-transparent text-[#8F8F8F] hover:text-white"}`}
-                data-testid={`admin-nav-${it.label.toLowerCase()}`}>
-                <it.icon size={16} /> {it.label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-        <button onClick={logout} className="flex items-center gap-2 text-xs text-[#8F8F8F] hover:text-white" data-testid="admin-logout">
-          <LogOut size={14} /> Sign out
-        </button>
+    <div className="min-h-screen bg-[#08080A] flex" data-testid="admin-layout">
+      {/* Desktop sidebar */}
+      <aside className="w-72 shrink-0 border-r border-[#17171A] hidden lg:block">
+        <SidebarContent onNavigate={closeMobile} onLogout={logout} />
       </aside>
 
+      {/* Mobile drawer */}
+      <aside className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-[#08080A] border-r border-[#17171A] transform transition-transform duration-300 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <SidebarContent onNavigate={closeMobile} onLogout={logout} />
+      </aside>
+      {mobileOpen && <div className="lg:hidden fixed inset-0 z-40 bg-black/60" onClick={closeMobile} />}
+
       <main className="flex-1 min-w-0">
-        <div className="border-b border-[#1a1a1a] px-8 py-5 flex justify-between items-center md:hidden">
-          <span className="font-display tracking-[0.32em] text-sm">GALAXY · ADMIN</span>
-          <button onClick={logout} className="text-xs text-[#8F8F8F]"><LogOut size={14} /></button>
-        </div>
-        <div className="p-6 md:p-10">
+        <header className="lg:hidden sticky top-0 z-30 bg-[#08080A]/95 backdrop-blur-md border-b border-[#17171A] px-5 py-4 flex justify-between items-center">
+          <button onClick={() => setMobileOpen(true)} className="w-10 h-10 rounded-full border border-[#26262A] flex items-center justify-center text-[#F2EDE4]" aria-label="Open menu">
+            <Menu size={16} />
+          </button>
+          <BrandMark variant="logo" size="sm" />
+          <button onClick={logout} className="w-10 h-10 rounded-full border border-[#26262A] flex items-center justify-center text-[#F2EDE4]" aria-label="Sign out">
+            <LogOut size={14} />
+          </button>
+        </header>
+        <div className="p-5 md:p-8 lg:p-12">
           <Outlet />
         </div>
       </main>
