@@ -210,10 +210,28 @@ async def create_event_for_booking(db, booking: Dict[str, Any], calendar_id: Opt
         ev = svc.events().insert(calendarId=cal, body=body).execute()
         return {"event_id": ev.get("id"), "calendar_id": cal, "htmlLink": ev.get("htmlLink")}
     except HttpError as e:
-        logger.warning(f"Calendar insert failed on {cal}: {e}")
+        print("=" * 80)
+        print("GOOGLE CALENDAR INSERT FAILED")
+        print("Calendar:", cal)
+        print("Booking:", booking["booking_code"])
+        print("Error:", e)
+
+        try:
+            print(e.content.decode())
+        except Exception:
+            pass
+
+        print("=" * 80)
         return None
+
     except Exception as e:
-        logger.warning(f"Calendar insert error: {e}")
+        import traceback
+
+        print("=" * 80)
+        print("UNEXPECTED GOOGLE CALENDAR ERROR")
+        traceback.print_exc()
+        print("=" * 80)
+
         return None
 
 
