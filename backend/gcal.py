@@ -187,13 +187,25 @@ def fetch_userinfo(access_token: str) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------- booking helpers
+def _booking_service_label(booking: Dict[str, Any]) -> str:
+    """Return a display label for both new multi-service and legacy bookings."""
+    service_names = booking.get("service_names")
+
+    if isinstance(service_names, list) and service_names:
+        return " + ".join(str(name) for name in service_names if name)
+
+    if booking.get("service_name"):
+        return str(booking["service_name"])
+
+    return "Salon Service"
+
 async def create_event_for_booking(db, booking: Dict[str, Any], calendar_id: Optional[str]) -> Optional[Dict[str, Any]]:
     svc = await get_service(db)
     if not svc:
         return None
     cal = calendar_id or "primary"
     body = {
-        "summary": f"{booking['service_name']} — {booking['customer_name']}",
+        "summary": f"{_booking_service_label(booking)} — {booking['customer_name']}",
         "description": (
             f"Galaxy Booking · {booking['booking_code']}\n"
             f"Stylist: {booking['employee_name']}\n"
@@ -252,7 +264,7 @@ async def patch_event(db, calendar_id: str, event_id: str, booking: Dict[str, An
     if not svc:
         return False
     body = {
-        "summary": f"{booking['service_name']} — {booking['customer_name']}",
+        "summary": f"{_booking_service_label(booking)} — {booking['customer_name']}",
         "start": {"dateTime": _iso_ist(booking["date"], booking["start_time"]), "timeZone": DEFAULT_TZ},
         "end": {"dateTime": _iso_ist(booking["date"], booking["end_time"]), "timeZone": DEFAULT_TZ},
     }

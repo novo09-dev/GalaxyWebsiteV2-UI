@@ -23,7 +23,19 @@ export const getEmployees = (params) => api.get("/employees", { params }).then((
 export const getGallery = () => api.get("/gallery").then((r) => r.data);
 export const getTestimonials = () => api.get("/testimonials").then((r) => r.data);
 export const getFAQs = () => api.get("/faqs").then((r) => r.data);
-export const getAvailability = (params) => api.get("/availability", { params }).then((r) => r.data);
+export const getAvailability = ({ employee_id, service_ids, date }) => {
+  const params = new URLSearchParams();
+
+  params.append("employee_id", employee_id);
+
+  service_ids.forEach((id) => {
+    params.append("service_ids", id);
+  });
+
+  params.append("date", date);
+
+  return api.get("/availability", { params }).then((r) => r.data);
+};
 export const createBooking = (body) => api.post("/bookings", body).then((r) => r.data);
 export const verifyPayment = (body) => api.post("/payments/verify", body).then((r) => r.data);
 export const getBooking = (id) => api.get(`/bookings/${id}`).then((r) => r.data);

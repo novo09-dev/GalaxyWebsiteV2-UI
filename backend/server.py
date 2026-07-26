@@ -152,9 +152,9 @@ class Booking(BaseModel):
     customer_name: str
     customer_phone: str
     customer_email: str = ""
-    service_id: str
-    service_name: str
-    category_id: str
+    service_ids: List[str]
+    service_names: List[str]
+    category_ids: List[str]
     employee_id: str
     employee_name: str
     date: str  # YYYY-MM-DD
@@ -230,7 +230,7 @@ class LoginBody(BaseModel):
 
 
 class BookingCreate(BaseModel):
-    service_id: str
+    service_ids: List[str]
     employee_id: str
     date: str
     start_time: str
@@ -502,11 +502,31 @@ async def list_services(category_id: Optional[str] = None, featured: Optional[bo
 
 
 @api.get("/employees")
-async def list_employees(service_id: Optional[str] = None):
-    q: Dict[str, Any] = {"active": True}
-    docs = await db.employees.find(q, {"_id": 0}).sort("order", 1).to_list(200)
-    if service_id:
-        docs = [e for e in docs if not e.get("service_ids") or service_id in e["service_ids"]]
+async def list_employees(
+    service_ids: Optional[List[str]] = Query(None),
+):
+    docs = await db.employees.find(
+        {"active": True},
+        {"_id": 0},
+    ).sort("order", 1).to_list(200)
+
+    if service_ids:
+        # Remove duplicates while preserving selection order.
+        service_ids = list(dict.fromkeys(service_ids))
+
+        # Keep employees who either:
+        # 1. have an empty service_ids list = can perform all services, or
+        # 2. explicitly support EVERY selected service.
+        docs = [
+            employee
+            for employee in docs
+            if not employee.get("service_ids")
+            or all(
+                service_id in employee["service_ids"]
+                for service_id in service_ids
+            )
+        ]
+
     return docs
 
 
@@ -541,12 +561,53 @@ def _hhmm(mins: int) -> str:
 
 
 @api.get("/availability")
-async def availability(employee_id: str, service_id: str, date: str):
-    """Return list of available HH:MM start slots for the given employee and service on given date."""
-    emp = await db.employees.find_one({"id": employee_id, "active": True}, {"_id": 0})
-    svc = await db.services.find_one({"id": service_id, "active": True}, {"_id": 0})
-    if not emp or not svc:
-        raise HTTPException(404, "Employee or service not found")
+async def availability(
+    employee_id: str,
+    service_ids: List[str] = Query(...),
+    date: str = Query(...),
+):
+    """Return available start slots for all selected services combined."""
+
+    if not service_ids:
+        raise HTTPException(400, "Select at least one service")
+
+    # Remove duplicate service IDs while preserving selection order.
+    service_ids = list(dict.fromkeys(service_ids))
+
+    emp = await db.employees.find_one(
+        {"id": employee_id, "active": True},
+        {"_id": 0},
+    )
+
+    if not emp:
+        raise HTTPException(404, "Employee not found")
+
+    services = await db.services.find(
+        {
+            "id": {"$in": service_ids},
+            "active": True,
+        },
+        {"_id": 0},
+    ).to_list(100)
+
+    if len(services) != len(service_ids):
+        raise HTTPException(404, "One or more services were not found")
+
+    # Make sure this employee can perform every selected service.
+    employee_service_ids = emp.get("service_ids") or []
+
+    if employee_service_ids:
+        unsupported = [
+            service_id
+            for service_id in service_ids
+            if service_id not in employee_service_ids
+        ]
+
+        if unsupported:
+            raise HTTPException(
+                400,
+                "Employee does not support one or more selected services",
+            )
 
     try:
         day_dt = datetime.strptime(date, "%Y-%m-%d").date()
@@ -556,17 +617,41 @@ async def availability(employee_id: str, service_id: str, date: str):
     if date in (emp.get("leaves") or []):
         return {"date": date, "slots": []}
 
-    weekday = day_dt.weekday()  # 0=Mon
-    wh = next((w for w in emp.get("working_hours", []) if w["day"] == weekday and w.get("open", True)), None)
+    weekday = day_dt.weekday()
+
+    wh = next(
+        (
+            w
+            for w in emp.get("working_hours", [])
+            if w["day"] == weekday and w.get("open", True)
+        ),
+        None,
+    )
+
     if not wh:
         return {"date": date, "slots": []}
 
     start_m = _minutes(wh["start"])
     end_m = _minutes(wh["end"])
-    duration = int(svc["duration"])
-    step = 30  # 30-min grid
+    working_day_duration = end_m - start_m
 
-    # Load bookings that may block this slot.
+    # Combined duration of every selected service.
+    duration = sum(int(service["duration"]) for service in services)
+
+    if duration <= 0:
+        raise HTTPException(400, "Invalid total service duration")
+
+    # The selected services cannot fit within one working day.
+    if duration > working_day_duration:
+        return {
+            "date": date,
+            "slots": [],
+            "duration": duration,
+            "reason": "too_long_for_day",
+        }
+
+    step = 30
+
     existing = await db.bookings.find(
         {
             "employee_id": employee_id,
@@ -587,14 +672,18 @@ async def availability(employee_id: str, service_id: str, date: str):
     busy = []
 
     for b in existing:
-        # Paid/confirmed bookings permanently block the slot.
-        if b.get("status") == "confirmed" or b.get("payment_status") == "paid":
+        if (
+            b.get("status") == "confirmed"
+            or b.get("payment_status") == "paid"
+        ):
             busy.append(
-                (_minutes(b["start_time"]), _minutes(b["end_time"]))
+                (
+                    _minutes(b["start_time"]),
+                    _minutes(b["end_time"]),
+                )
             )
             continue
 
-        # Unpaid pending bookings block the slot only during the active hold.
         hold_expires_at = b.get("hold_expires_at")
 
         if not hold_expires_at:
@@ -606,11 +695,16 @@ async def availability(employee_id: str, service_id: str, date: str):
             )
 
             if hold_expiry.tzinfo is None:
-                hold_expiry = hold_expiry.replace(tzinfo=timezone.utc)
+                hold_expiry = hold_expiry.replace(
+                    tzinfo=timezone.utc
+                )
 
             if hold_expiry > now_utc:
                 busy.append(
-                    (_minutes(b["start_time"]), _minutes(b["end_time"]))
+                    (
+                        _minutes(b["start_time"]),
+                        _minutes(b["end_time"]),
+                    )
                 )
 
         except (ValueError, TypeError):
@@ -619,29 +713,78 @@ async def availability(employee_id: str, service_id: str, date: str):
                 hold_expires_at,
             )
 
-    # Merge in Google Calendar busy intervals (if configured + employee has calendar id)
+    # Include Google Calendar busy periods.
     emp_cal = emp.get("google_calendar_id") or ""
+
     if emp_cal:
-        google_busy = await gcal.busy_intervals(db, emp_cal, date)
+        google_busy = await gcal.busy_intervals(
+            db,
+            emp_cal,
+            date,
+        )
         busy.extend(google_busy)
 
-    # If date is today, only show future slots (with 10-min buffer)
-    now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)  # IST
+    # Current time in IST.
+    now = datetime.now(timezone.utc) + timedelta(
+        hours=5,
+        minutes=30,
+    )
+
     today_str = now.strftime("%Y-%m-%d")
 
     slots = []
+    all_slots = []
     m = start_m
+
     while m + duration <= end_m:
-        end = m + duration
-        conflict = any(not (end <= bs or m >= be) for bs, be in busy)
-        if not conflict:
-            if date > today_str:
-                slots.append(_hhmm(m))
-            elif date == today_str and m >= (now.hour * 60 + now.minute + 10):
-                slots.append(_hhmm(m))
+        slot_end = m + duration
+
+        conflict = any(
+            not (slot_end <= busy_start or m >= busy_end)
+            for busy_start, busy_end in busy
+        )
+
+        is_future_time = (
+            date > today_str
+            or (
+                date == today_str
+                and m >= (
+                    now.hour * 60
+                    + now.minute
+                    + 10
+                )
+            )
+        )
+
+        available = not conflict and is_future_time
+
+        all_slots.append(
+            {
+                "time": _hhmm(m),
+                "available": available,
+            }
+        )
+
+        if available:
+            slots.append(_hhmm(m))
+
         m += step
 
-    return {"date": date, "slots": slots}
+    if not slots:
+        return {
+            "date": date,
+            "slots": [],
+            "all_slots": all_slots,
+            "duration": duration,
+            "reason": "no_continuous_slot",
+        }
+
+    return {
+        "date": date,
+        "slots": slots,
+        "all_slots": all_slots,
+        "duration": duration,
+    }
 
 
 def _gen_booking_code() -> str:
@@ -649,22 +792,71 @@ def _gen_booking_code() -> str:
 
 @api.post("/bookings")
 async def create_booking(body: BookingCreate):
-    svc = await db.services.find_one(
-        {"id": body.service_id, "active": True},
+    # A booking must contain at least one service.
+    if not body.service_ids:
+        raise HTTPException(400, "Select at least one service")
+
+    # Remove duplicate service IDs while preserving selection order.
+    service_ids = list(dict.fromkeys(body.service_ids))
+
+    # Load every selected active service.
+    services = await db.services.find(
+        {
+            "id": {"$in": service_ids},
+            "active": True,
+        },
         {"_id": 0},
-    )
+    ).to_list(100)
+
+    if len(services) != len(service_ids):
+        raise HTTPException(
+            404,
+            "One or more services were not found",
+        )
+
+    # MongoDB $in does not guarantee the original selection order.
+    services_by_id = {
+        service["id"]: service
+        for service in services
+    }
+
+    services = [
+        services_by_id[service_id]
+        for service_id in service_ids
+    ]
+
+    # Load the selected employee.
     emp = await db.employees.find_one(
-        {"id": body.employee_id, "active": True},
+        {
+            "id": body.employee_id,
+            "active": True,
+        },
         {"_id": 0},
     )
 
-    if not svc or not emp:
-        raise HTTPException(404, "Service or employee not found")
+    if not emp:
+        raise HTTPException(404, "Employee not found")
 
-    # Make sure the slot is still available before starting payment.
+    # Make sure the employee can perform every selected service.
+    employee_service_ids = emp.get("service_ids") or []
+
+    if employee_service_ids:
+        unsupported = [
+            service_id
+            for service_id in service_ids
+            if service_id not in employee_service_ids
+        ]
+
+        if unsupported:
+            raise HTTPException(
+                400,
+                "Employee does not support one or more selected services",
+            )
+
+    # Recheck the complete combined slot immediately before payment.
     avail = await availability(
         employee_id=body.employee_id,
-        service_id=body.service_id,
+        service_ids=service_ids,
         date=body.date,
     )
 
@@ -674,7 +866,25 @@ async def create_booking(body: BookingCreate):
             "Selected time is no longer available. Please pick another slot.",
         )
 
-    end_m = _minutes(body.start_time) + int(svc["duration"])
+    # Calculate combined duration and money values.
+    total_duration = sum(
+        int(service["duration"])
+        for service in services
+    )
+
+    total_price = sum(
+        float(service["price"])
+        for service in services
+    )
+
+    total_deposit = sum(
+        float(service["deposit"])
+        for service in services
+    )
+
+    total_balance = total_price - total_deposit
+
+    end_m = _minutes(body.start_time) + total_duration
     end_time = _hhmm(end_m)
 
     # Create/update customer.
@@ -692,49 +902,79 @@ async def create_booking(body: BookingCreate):
         ).model_dump()
 
         await db.customers.insert_one(dict(cust))
+
     else:
         await db.customers.update_one(
             {"phone": body.customer_phone},
             {
                 "$set": {
                     "name": body.customer_name,
-                    "email": body.customer_email or cust.get("email", ""),
+                    "email": (
+                        body.customer_email
+                        or cust.get("email", "")
+                    ),
                 }
             },
         )
 
+    # Create ONE booking containing all selected services.
     booking = Booking(
         booking_code=_gen_booking_code(),
         customer_id=cust["id"],
         customer_name=body.customer_name,
         customer_phone=body.customer_phone,
         customer_email=body.customer_email,
-        service_id=svc["id"],
-        service_name=svc["name"],
-        category_id=svc["category_id"],
+
+        service_ids=[
+            service["id"]
+            for service in services
+        ],
+
+        service_names=[
+            service["name"]
+            for service in services
+        ],
+
+        category_ids=list(
+            dict.fromkeys(
+                service["category_id"]
+                for service in services
+            )
+        ),
+
         employee_id=emp["id"],
         employee_name=emp["name"],
+
         date=body.date,
         start_time=body.start_time,
         end_time=end_time,
-        duration=int(svc["duration"]),
-        price=float(svc["price"]),
-        deposit=float(svc["deposit"]),
-        balance=float(svc["price"]) - float(svc["deposit"]),
+
+        duration=total_duration,
+        price=total_price,
+        deposit=total_deposit,
+        balance=total_balance,
+
         notes=body.notes,
         status="pending",
         payment_status="unpaid",
     ).model_dump()
 
+    # Preserve the existing temporary payment hold system.
     booking["hold_expires_at"] = (
-        datetime.now(timezone.utc) + timedelta(minutes=BOOKING_HOLD_MINUTES)
+        datetime.now(timezone.utc)
+        + timedelta(minutes=BOOKING_HOLD_MINUTES)
     ).isoformat()
 
-    # Create a REAL Razorpay order.
-    amount_paise = int(round(float(booking["deposit"]) * 100))
+    # Create ONE Razorpay order for the combined deposit.
+    amount_paise = int(
+        round(float(booking["deposit"]) * 100)
+    )
 
     if amount_paise <= 0:
-        raise HTTPException(400, "Invalid booking deposit amount")
+        raise HTTPException(
+            400,
+            "Invalid booking deposit amount",
+        )
 
     try:
         razorpay_order = razorpay_client.order.create(
@@ -744,12 +984,17 @@ async def create_booking(body: BookingCreate):
                 "receipt": booking["booking_code"],
                 "notes": {
                     "booking_id": booking["id"],
-                    "service": booking["service_name"],
+                    "services": ", ".join(
+                        booking["service_names"]
+                    ),
                 },
             }
         )
+
     except Exception:
-        logger.exception("Razorpay order creation failed")
+        logger.exception(
+            "Razorpay order creation failed"
+        )
         raise HTTPException(
             502,
             "Unable to initialise payment. Please try again.",
@@ -758,7 +1003,9 @@ async def create_booking(body: BookingCreate):
     # Store the pending booking only after Razorpay accepted the order.
     booking["razorpay_order_id"] = razorpay_order["id"]
 
-    await db.bookings.insert_one(dict(booking))
+    await db.bookings.insert_one(
+        dict(booking)
+    )
 
     await db.payment_orders.insert_one(
         {
@@ -766,7 +1013,10 @@ async def create_booking(body: BookingCreate):
             "booking_id": booking["id"],
             "amount": razorpay_order["amount"],
             "currency": razorpay_order["currency"],
-            "status": razorpay_order.get("status", "created"),
+            "status": razorpay_order.get(
+                "status",
+                "created",
+            ),
             "created_at": now_iso(),
         }
     )
@@ -999,11 +1249,33 @@ async def admin_stats(admin=Depends(get_current_admin)):
 
     # popular services
     pop = await db.bookings.aggregate([
-        {"$group": {"_id": "$service_name", "count": {"$sum": 1}}},
+        {
+            "$match": {
+                "service_names": {
+                    "$exists": True,
+                    "$type": "array",
+                    "$ne": [],
+                }
+            }
+        },
+        {"$unwind": "$service_names"},
+        {
+            "$group": {
+                "_id": "$service_names",
+                "count": {"$sum": 1},
+            }
+        },
         {"$sort": {"count": -1}},
         {"$limit": 5},
     ]).to_list(5)
-    popular_services = [{"name": p["_id"], "count": p["count"]} for p in pop]
+
+    popular_services = [
+        {
+            "name": p["_id"],
+            "count": p["count"],
+        }
+        for p in pop
+    ]
 
     return {
         "total_bookings": total_bookings,

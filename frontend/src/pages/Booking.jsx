@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
@@ -33,7 +33,7 @@ function StepRail({ current, onJump, allowJump }) {
     <div className="mb-12">
       <div className="flex items-center justify-between mb-4">
         <p className="eyebrow" data-testid="booking-step-label">
-          Step {current + 1} of {STEPS.length} · <span className="text-[#F2EDE4]">{STEPS[current].label}</span>
+          Step {current + 1} of {STEPS.length} Â· <span className="text-[#F2EDE4]">{STEPS[current].label}</span>
         </p>
         <p className="text-[10px] tracking-widest uppercase text-[#8C8880]">{Math.round(pct)}% complete</p>
       </div>
@@ -76,15 +76,28 @@ function StepRail({ current, onJump, allowJump }) {
 }
 
 /* ---------------- Summary sidebar ---------------- */
-function Summary({ svc, emp, date, time, endTime, category }) {
+function Summary({
+  selectedServices,
+  emp,
+  date,
+  time,
+  endTime,
+  category,
+  totalDuration,
+  totalPrice,
+  totalDeposit,
+  totalBalance,
+}) {
+  const hasServices = selectedServices.length > 0;
+
   return (
     <aside className="gx-panel p-6 md:p-7 sticky top-28" data-testid="booking-summary">
       <div className="flex items-center justify-between mb-6">
         <Eyebrow>Your booking</Eyebrow>
-        {svc && <Badge>Draft</Badge>}
+        {hasServices && <Badge>Draft</Badge>}
       </div>
 
-      {!svc ? (
+      {!hasServices ? (
         <div className="py-6">
           <p className="font-editorial text-2xl text-[#F2EDE4] leading-tight">Pick a service to begin.</p>
           <p className="text-[#8C8880] text-sm mt-3">Your summary appears here as you choose. Nothing is confirmed until you complete payment.</p>
@@ -97,28 +110,40 @@ function Summary({ svc, emp, date, time, endTime, category }) {
               <p className="text-[#F2EDE4]">{category}</p>
             </div>
           )}
+
           <div>
-            <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-1">Service</p>
-            <p className="font-editorial text-2xl leading-tight text-[#F2EDE4]">{svc.name}</p>
-            <p className="text-[#8C8880] text-xs mt-1">{svc.duration} min</p>
+            <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Services</p>
+            <div className="space-y-2">
+              {selectedServices.map((service) => (
+                <div key={service.id}>
+                  <p className="font-editorial text-xl leading-tight text-[#F2EDE4]">{service.name}</p>
+                  <p className="text-[#8C8880] text-xs mt-1">{service.duration} min Â· â‚¹{service.price.toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[#8C8880] text-xs mt-3">{totalDuration} min total</p>
           </div>
+
           {emp && (
             <div>
               <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-1">Professional</p>
               <p className="text-[#F2EDE4]">{emp.name}</p>
             </div>
           )}
+
           {date && (
             <div>
               <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-1">Date &amp; time</p>
-              <p className="text-[#F2EDE4]">{date}{time ? ` · ${time}${endTime ? ` – ${endTime}` : ""}` : ""}</p>
+              <p className="text-[#F2EDE4]">{date}{time ? ` Â· ${time}${endTime ? ` â€“ ${endTime}` : ""}` : ""}</p>
             </div>
           )}
+
           <div className="border-t border-[#1D1D20] pt-5 space-y-3">
-            <Row label="Total" value={`₹${svc.price.toLocaleString()}`} />
-            <Row label="Deposit today" value={`₹${svc.deposit.toLocaleString()}`} accent />
-            <Row label="Pay at salon" value={`₹${(svc.price - svc.deposit).toLocaleString()}`} muted />
+            <Row label="Total" value={`â‚¹${totalPrice.toLocaleString()}`} accent />
+            <Row label="Deposit today" value={`â‚¹${totalDeposit.toLocaleString()}`} />
+            <Row label="Pay at salon" value={`â‚¹${totalBalance.toLocaleString()}`} muted />
           </div>
+
           <p className="text-[11px] leading-relaxed text-[#8C8880] pt-1">
             The deposit is adjusted against your final bill. Reschedule free up to 4 hours before.
           </p>
@@ -223,15 +248,18 @@ export default function Booking() {
   const nav = useNavigate();
   const [sp] = useSearchParams();
   const [step, setStep] = useState(0);
+  const bookingTopRef = useRef(null);
   const [data, setData] = useState({
-    categoryId: null, serviceId: null, employeeId: null, date: null, time: null,
+    categoryId: null, serviceIds: [], employeeId: null, date: null, time: null,
     name: "", phone: "", email: "", notes: "", accepted: false,
   });
   const [cats, setCats] = useState([]);
   const [services, setServices] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [slots, setSlots] = useState([]);
+  const [allSlots, setAllSlots] = useState([]);
   const [business, setBusiness] = useState(null);
+  const [availabilityReason, setAvailabilityReason] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pendingPayment, setPendingPayment] = useState(null);
 
@@ -245,42 +273,61 @@ export default function Booking() {
       if (preService) {
         const svc = s.find((x) => x.id === preService);
         if (svc) {
-          setData((d) => ({ ...d, categoryId: svc.category_id, serviceId: svc.id }));
+          setData((d) => ({ ...d, categoryId: svc.category_id, serviceIds: [svc.id] }));
           setStep(2);
         }
       }
     })();
   }, [sp]);
 
-  const svc = services.find((s) => s.id === data.serviceId);
+  const selectedServices = services.filter((s) => data.serviceIds.includes(s.id));
   const emp = employees.find((e) => e.id === data.employeeId);
   const category = cats.find((c) => c.id === data.categoryId);
 
-  const endTime = svc && data.time ? (() => {
+  const totalDuration = selectedServices.reduce((sum, s) => sum + s.duration, 0);
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalDeposit = selectedServices.reduce((sum, s) => sum + s.deposit, 0);
+  const totalBalance = totalPrice - totalDeposit;
+
+  const endTime = selectedServices.length > 0 && data.time ? (() => {
     const [h, m] = data.time.split(":").map(Number);
-    const total = h * 60 + m + svc.duration;
+    const total = h * 60 + m + totalDuration;
     return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
   })() : null;
 
   useEffect(() => {
     (async () => {
-      if (step === 4 && data.employeeId && data.serviceId && data.date) {
+      if (step === 4 && data.employeeId && data.serviceIds.length > 0 && data.date) {
         try {
           const r = await getAvailability({
             employee_id: data.employeeId,
-            service_id: data.serviceId,
+            service_ids: data.serviceIds,
             date: data.date,
           });
+
           setSlots(r.slots || []);
-        } catch { setSlots([]); }
+          setAllSlots(r.all_slots || []);
+          setAvailabilityReason(r.reason || null);
+        } catch {
+          setSlots([]);
+          setAllSlots([]);
+          setAvailabilityReason(null);
+        }
       }
     })();
-  }, [step, data.employeeId, data.serviceId, data.date]);
+  }, [step, data.employeeId, data.serviceIds, data.date]);
+
+  useEffect(() => {
+    bookingTopRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [step]);
 
   const canNext = () => {
     switch (step) {
       case 0: return !!data.categoryId;
-      case 1: return !!data.serviceId;
+      case 1: return data.serviceIds.length > 0;
       case 2: return !!data.employeeId;
       case 3: return !!data.date;
       case 4: return !!data.time;
@@ -310,7 +357,7 @@ export default function Booking() {
         // First payment attempt:
         // create the temporary booking hold and Razorpay order.
         const created = await createBooking({
-          service_id: data.serviceId,
+          service_ids: data.serviceIds,
           employee_id: data.employeeId,
           date: data.date,
           start_time: data.time,
@@ -343,7 +390,7 @@ export default function Booking() {
         amount: order.amount,
         currency: order.currency,
         name: "Galaxy Salon & Spa",
-        description: `Booking deposit · ${svc?.name || "Salon Service"}`,
+        description: `Booking deposit Â· ${selectedServices.map((s) => s.name).join(", ") || "Salon Services"}`,
         order_id: order.id,
 
         prefill: {
@@ -375,7 +422,7 @@ export default function Booking() {
             // Payment succeeded, so we no longer need the pending retry.
             setPendingPayment(null);
 
-            toast.success("Payment verified · Booking confirmed", {
+            toast.success("Payment verified Â· Booking confirmed", {
               id: "pay",
             });
 
@@ -454,7 +501,7 @@ export default function Booking() {
       <Nav />
       <main className="pt-32 md:pt-36 pb-24 md:pb-32 min-h-screen bg-[#08080A]" data-testid="booking-page">
         <div className="gx-container">
-          <div className="mb-10 md:mb-14 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+          <div ref={bookingTopRef} className="mb-10 md:mb-14 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
             <div>
               <Eyebrow>Book an Appointment</Eyebrow>
               <EditorialHeading as="h1" size="md" className="mt-5">
@@ -462,7 +509,7 @@ export default function Booking() {
               </EditorialHeading>
             </div>
             <p className="text-[#8C8880] text-sm max-w-sm leading-relaxed">
-              Eight quick steps. A small deposit secures your slot — the rest is settled at the salon.
+              Eight quick steps. A small deposit secures your slot â€” the rest is settled at the salon.
             </p>
           </div>
 
@@ -482,7 +529,7 @@ export default function Booking() {
                             setData({
                               ...data,
                               categoryId: c.id,
-                              serviceId: null,
+                              serviceIds: [],
                               employeeId: null,
                               date: null,
                               time: null,
@@ -518,13 +565,21 @@ export default function Booking() {
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {arr.map((s) => {
-                              const selected = data.serviceId === s.id;
+                              const selected = data.serviceIds.includes(s.id);
                               return (
                                 <button
                                   key={s.id}
                                   onClick={() => {
                                     setPendingPayment(null);
-                                    setData({ ...data, serviceId: s.id });
+                                    setData((d) => ({
+                                      ...d,
+                                      serviceIds: d.serviceIds.includes(s.id)
+                                        ? d.serviceIds.filter((id) => id !== s.id)
+                                        : [...d.serviceIds, s.id],
+                                      employeeId: null,
+                                      date: null,
+                                      time: null,
+                                    }));
                                   }}
                                   className={`group relative overflow-hidden text-left flex items-stretch gap-0 border transition-all duration-300 ${selected ? "border-[#C21A1A] bg-[#150A0A] shadow-[0_10px_40px_-20px_rgba(194,26,26,0.4)]" : "border-[#1B1B1E] bg-[#111113] hover:border-[#2E2E33]"}`}
                                   data-testid={`svc-${s.id}`}
@@ -553,12 +608,12 @@ export default function Booking() {
                                       <p className="text-[11px] text-[#8C8880] mt-2 flex items-center gap-2 md:gap-3 tracking-widest uppercase flex-wrap">
                                         <span className="flex items-center gap-1"><Clock size={11} />{s.duration}m</span>
                                         <span className="opacity-40">/</span>
-                                        <span>Total ₹{s.price.toLocaleString()}</span>
+                                        <span>Deposit â‚¹{s.deposit.toLocaleString()}</span>
                                       </p>
                                     </div>
                                     <div className="text-right shrink-0">
-                                      <p className="text-[9px] uppercase tracking-widest text-[#8C8880]">Deposit</p>
-                                      <p className="font-editorial text-xl md:text-2xl text-[#C21A1A] mt-1 leading-none">₹{s.deposit.toLocaleString()}</p>
+                                      <p className="text-[9px] uppercase tracking-widest text-[#8C8880]">Total</p>
+                                      <p className="font-editorial text-xl md:text-2xl text-[#C21A1A] mt-1 leading-none">â‚¹{s.price.toLocaleString()}</p>
                                       {selected && (
                                         <span className="inline-flex items-center gap-1 mt-2 text-[10px] tracking-widest uppercase text-[#C21A1A]">
                                           <Check size={11} /> Selected
@@ -582,26 +637,51 @@ export default function Booking() {
                           setPendingPayment(null);
                           setData({ ...data, employeeId: employees[0]?.id });
                         }}
-                        className={`gx-card p-6 text-left ${employees[0] && data.employeeId === employees[0].id ? "border-[#C21A1A] bg-[#150A0A]" : ""}`}
+                        className={`gx-card p-6 text-left transition-all duration-300 ${
+                          employees[0] && data.employeeId === employees[0].id
+                            ? "border-[#C21A1A] bg-gradient-to-r from-[#C21A1A]/40 via-[#150A0A] to-[#150A0A] shadow-[0_10px_40px_-20px_rgba(194,26,26,0.4)]"
+                            : "border-[#1B1B1E] bg-[#111113] hover:border-[#2E2E33]"
+                        }`}
                         data-testid="emp-any"
                       >
                         <div className="w-10 h-10 rounded-full border border-[#C21A1A] flex items-center justify-center mb-4">
                           <Sparkles size={14} className="text-[#C21A1A]" />
                         </div>
                         <p className="font-editorial text-xl text-[#F2EDE4]">First Available</p>
-                        <p className="text-xs text-[#8C8880] mt-2">Fastest confirmation · any expert.</p>
+                        <p className="text-xs text-[#8C8880] mt-2">Fastest confirmation Â· any expert.</p>
                       </button>
                       {employees.map((e) => (
                         <button
                           key={e.id}
-                         onClick={() => {
+                          onClick={() => {
                             setPendingPayment(null);
                             setData({ ...data, employeeId: e.id });
                           }}
-                          className={`gx-card p-3 text-left flex items-center gap-4 ${data.employeeId === e.id ? "border-[#C21A1A] bg-[#150A0A]" : ""}`}
+                          className={`group gx-card p-3 text-left flex items-center gap-4 transition-all duration-300 ${
+                            data.employeeId === e.id
+                              ? "border-[#C21A1A] bg-gradient-to-r from-[#C21A1A]/40 via-[#150A0A] to-[#150A0A] shadow-[0_10px_40px_-20px_rgba(194,26,26,0.4)]"
+                              : "border-[#1B1B1E] bg-[#111113] hover:border-[#2E2E33]"
+                          }`}
                           data-testid={`emp-${e.id}`}
                         >
-                          <img src={e.photo} alt="" className="w-16 h-16 object-cover rounded-sm shrink-0" />
+                          <div className="relative w-16 h-16 shrink-0 overflow-hidden rounded-sm">
+                            <img
+                              src={e.photo}
+                              alt=""
+                              className={`w-full h-full object-cover transition-all duration-700 ${
+                                data.employeeId === e.id
+                                  ? "scale-[1.05]"
+                                  : "opacity-90 group-hover:opacity-100 group-hover:scale-[1.04]"
+                              }`}
+                            />
+                            <div
+                              className={`absolute inset-0 transition-opacity duration-300 ${
+                                data.employeeId === e.id
+                                  ? "bg-gradient-to-r from-[#C21A1A]/40 to-transparent"
+                                  : "bg-gradient-to-r from-black/40 to-transparent"
+                              }`}
+                            />
+                          </div>
                           <div className="min-w-0">
                             <p className="font-editorial text-lg text-[#F2EDE4] leading-tight">{e.name}</p>
                             <p className="text-[11px] text-[#8C8880] tracking-widest uppercase mt-1">{e.position}</p>
@@ -627,30 +707,66 @@ export default function Booking() {
                     <div data-testid="step-time">
                       <div className="flex items-center gap-3 mb-5">
                         <span className="red-rule" />
-                        <p className="eyebrow text-[#D9D3C6]">Available slots · {data.date}</p>
+                        <p className="eyebrow text-[#D9D3C6]">Available slots Â· {data.date}</p>
                       </div>
-                      {slots.length === 0 ? (
-                        <div className="gx-panel p-8 text-center">
+                      {slots.length === 0 && (
+                        <div className="gx-panel p-8 text-center mb-6">
                           <Info size={20} className="mx-auto text-[#C21A1A] mb-3" />
-                          <p className="font-editorial text-xl text-[#F2EDE4]">No slots available.</p>
-                          <p className="text-[#8C8880] text-sm mt-2">Please pick another day — our stylist is fully booked.</p>
+
+                          {availabilityReason === "too_long_for_day" ? (
+                            <>
+                              <p className="font-editorial text-xl text-[#F2EDE4]">
+                                Selected services exceed the available booking time
+                              </p>
+                              <p className="text-[#8C8880] text-sm mt-2">
+                                The combined duration of your selected services is longer than a single booking day allows. Please remove one or more services to continue.
+                              </p>
+                            </>
+                          ) : availabilityReason === "no_continuous_slot" ? (
+                            <>
+                              <p className="font-editorial text-xl text-[#F2EDE4]">
+                                Not enough time available on this date
+                              </p>
+                              <p className="text-[#8C8880] text-sm mt-2">
+                                Your selected services require a longer continuous time slot than is available on this date. Please choose another date or remove one or more services.
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-editorial text-xl text-[#F2EDE4]">
+                                No slots available.
+                              </p>
+                              <p className="text-[#8C8880] text-sm mt-2">
+                                Please choose another date.
+                              </p>
+                            </>
+                          )}
                         </div>
-                      ) : (
+                      )}
+
+                      {allSlots.length > 0 && (
                         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 md:gap-3">
-                          {slots.map((t) => (
+                          {allSlots.map((slot) => (
                             <button
-                              key={t}
+                              key={slot.time}
+                              disabled={!slot.available}
                               onClick={() => {
+                                if (!slot.available) return;
                                 setPendingPayment(null);
-                                setData({ ...data, time: t });
+                                setData({ ...data, time: slot.time });
                               }}
                               className={`py-3.5 text-sm border rounded transition-all ${
-                                data.time === t
-                                  ? "bg-[#C21A1A] border-[#C21A1A] text-white font-medium"
-                                  : "border-[#232327] hover:border-[#C21A1A] hover:bg-[#C21A1A]/10 text-[#D9D3C6]"
+                                !slot.available
+                                  ? "border-[#1A1A1D] bg-[#101012] text-[#4A4A50] cursor-not-allowed opacity-60"
+                                  : data.time === slot.time
+                                    ? "bg-[#C21A1A] border-[#C21A1A] text-white font-medium"
+                                    : "border-[#232327] hover:border-[#C21A1A] hover:bg-[#C21A1A]/10 text-[#D9D3C6]"
                               }`}
-                              data-testid={`slot-${t}`}
-                            >{t}</button>
+                              data-testid={`slot-${slot.time}`}
+                              aria-label={`${slot.time} ${slot.available ? "available" : "unavailable"}`}
+                            >
+                              {slot.time}
+                            </button>
                           ))}
                         </div>
                       )}
@@ -705,7 +821,7 @@ export default function Booking() {
                     </div>
                   )}
 
-                  {step === 6 && svc && (
+                  {step === 6 && selectedServices.length > 0 && (
                     <div className="gx-panel p-6 md:p-10 space-y-8" data-testid="step-review">
                       <div>
                         <Eyebrow>Review</Eyebrow>
@@ -713,11 +829,14 @@ export default function Booking() {
                       </div>
 
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm">
-                        <ReviewField label="Service" value={svc.name} />
+                        <ReviewField
+                          label="Services"
+                          value={selectedServices.map((s) => s.name).join(", ")}
+                        />
                         <ReviewField label="Professional" value={emp?.name} />
-                        <ReviewField label="Duration" value={`${svc.duration} min`} />
+                        <ReviewField label="Duration" value={`${totalDuration} min`} />
                         <ReviewField label="Date" value={data.date} />
-                        <ReviewField label="Time" value={`${data.time} – ${endTime}`} />
+                        <ReviewField label="Time" value={`${data.time} â€“ ${endTime}`} />
                         <ReviewField label="Name" value={data.name} />
                         <ReviewField label="Phone" value={data.phone} />
                         {data.email && <ReviewField label="Email" value={data.email} />}
@@ -726,15 +845,15 @@ export default function Booking() {
                       <div className="border-t border-[#1D1D20] pt-6 grid grid-cols-3 gap-6 text-sm">
                         <div>
                           <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Total</p>
-                          <p className="font-editorial text-2xl text-[#F2EDE4]">₹{svc.price.toLocaleString()}</p>
+                          <p className="font-editorial text-2xl text-[#F2EDE4]">â‚¹{totalPrice.toLocaleString()}</p>
                         </div>
                         <div>
                           <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Deposit today</p>
-                          <p className="font-editorial text-2xl text-[#C21A1A]">₹{svc.deposit.toLocaleString()}</p>
+                          <p className="font-editorial text-2xl text-[#C21A1A]">â‚¹{totalDeposit.toLocaleString()}</p>
                         </div>
                         <div>
                           <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Pay at salon</p>
-                          <p className="font-editorial text-2xl text-[#D9D3C6]">₹{(svc.price - svc.deposit).toLocaleString()}</p>
+                          <p className="font-editorial text-2xl text-[#D9D3C6]">â‚¹{totalBalance.toLocaleString()}</p>
                         </div>
                       </div>
 
@@ -750,16 +869,30 @@ export default function Booking() {
                     </div>
                   )}
 
-                  {step === 7 && svc && (
+                  {step === 7 && selectedServices.length > 0 && (
                     <div className="gx-panel p-8 md:p-12 text-center" data-testid="step-payment">
                       <div className="w-14 h-14 mx-auto rounded-full border border-[#C21A1A] flex items-center justify-center mb-6">
                         <ShieldCheck size={22} className="text-[#C21A1A]" />
                       </div>
+
                       <Eyebrow className="justify-center">Confirm &amp; Pay</Eyebrow>
-                      <p className="font-editorial text-3xl md:text-4xl text-[#F2EDE4] mt-4">A small deposit secures your slot.</p>
-                      <p className="text-[#8C8880] text-sm mt-4 max-w-md mx-auto leading-relaxed">
-                        You&apos;ll pay <span className="text-[#F2EDE4]">₹{svc.deposit.toLocaleString()}</span> today. The remaining <span className="text-[#F2EDE4]">₹{(svc.price - svc.deposit).toLocaleString()}</span> is settled at the salon after your service.
+
+                      <p className="font-editorial text-3xl md:text-4xl text-[#F2EDE4] mt-4">
+                        A small deposit secures your slot.
                       </p>
+
+                      <p className="text-[#8C8880] text-sm mt-4 max-w-md mx-auto leading-relaxed">
+                        You&apos;ll pay{" "}
+                        <span className="text-[#F2EDE4]">
+                          â‚¹{totalDeposit.toLocaleString()}
+                        </span>{" "}
+                        today. The remaining{" "}
+                        <span className="text-[#F2EDE4]">
+                          â‚¹{totalBalance.toLocaleString()}
+                        </span>{" "}
+                        is settled at the salon after your services.
+                      </p>
+
                       <button
                         onClick={submitBooking}
                         disabled={loading}
@@ -767,12 +900,20 @@ export default function Booking() {
                         data-testid="pay-now"
                       >
                         {loading ? (
-                          <>Processing<span className="inline-block ml-1 animate-pulse">…</span></>
+                          <>
+                            Processing
+                            <span className="inline-block ml-1 animate-pulse">â€¦</span>
+                          </>
                         ) : (
-                          <>Pay ₹{svc.deposit.toLocaleString()} <ArrowRight size={14} /></>
+                          <>
+                            Pay â‚¹{totalDeposit.toLocaleString()} <ArrowRight size={14} />
+                          </>
                         )}
                       </button>
-                      <p className="text-[10px] text-[#6E6A62] mt-8 tracking-[0.28em] uppercase">Powered by Razorpay · 256-bit secure</p>
+
+                      <p className="text-[10px] text-[#6E6A62] mt-8 tracking-[0.28em] uppercase">
+                        Powered by Razorpay Â· 256-bit secure
+                      </p>
                     </div>
                   )}
                 </motion.div>
@@ -801,7 +942,18 @@ export default function Booking() {
             </div>
 
             <div className="lg:col-span-4">
-              <Summary svc={svc} emp={emp} date={data.date} time={data.time} endTime={endTime} category={category?.name} />
+              <Summary
+                selectedServices={selectedServices}
+                emp={emp}
+                date={data.date}
+                time={data.time}
+                endTime={endTime}
+                category={category?.name}
+                totalDuration={totalDuration}
+                totalPrice={totalPrice}
+                totalDeposit={totalDeposit}
+                totalBalance={totalBalance}
+              />
             </div>
           </div>
         </div>
