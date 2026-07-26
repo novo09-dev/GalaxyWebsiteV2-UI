@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os, logging, uuid, hmac, hashlib, secrets, jwt, bcrypt
+import razorpay
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Any, Dict
@@ -23,6 +24,15 @@ db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGO = "HS256"
 JWT_EXPIRE_HOURS = 24 * 7
+
+BOOKING_HOLD_MINUTES = 10
+
+RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
+
+razorpay_client = razorpay.Client(
+    auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)
+)
 
 app = FastAPI(title="Galaxy Salon API")
 api = APIRouter(prefix="/api")
@@ -232,10 +242,9 @@ class BookingCreate(BaseModel):
 
 class PaymentVerify(BaseModel):
     booking_id: str
-    razorpay_order_id: Optional[str] = None
-    razorpay_payment_id: Optional[str] = None
-    razorpay_signature: Optional[str] = None
-
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
 
 # ============================================================
 # Seed / Startup
@@ -557,13 +566,58 @@ async def availability(employee_id: str, service_id: str, date: str):
     duration = int(svc["duration"])
     step = 30  # 30-min grid
 
-    # Load existing bookings for that day/employee
-    existing = await db.bookings.find({
-        "employee_id": employee_id,
-        "date": date,
-        "status": {"$in": ["pending", "confirmed"]},
-    }, {"_id": 0, "start_time": 1, "end_time": 1}).to_list(500)
-    busy = [(_minutes(b["start_time"]), _minutes(b["end_time"])) for b in existing]
+    # Load bookings that may block this slot.
+    existing = await db.bookings.find(
+        {
+            "employee_id": employee_id,
+            "date": date,
+            "status": {"$in": ["pending", "confirmed"]},
+        },
+        {
+            "_id": 0,
+            "start_time": 1,
+            "end_time": 1,
+            "status": 1,
+            "payment_status": 1,
+            "hold_expires_at": 1,
+        },
+    ).to_list(500)
+
+    now_utc = datetime.now(timezone.utc)
+    busy = []
+
+    for b in existing:
+        # Paid/confirmed bookings permanently block the slot.
+        if b.get("status") == "confirmed" or b.get("payment_status") == "paid":
+            busy.append(
+                (_minutes(b["start_time"]), _minutes(b["end_time"]))
+            )
+            continue
+
+        # Unpaid pending bookings block the slot only during the active hold.
+        hold_expires_at = b.get("hold_expires_at")
+
+        if not hold_expires_at:
+            continue
+
+        try:
+            hold_expiry = datetime.fromisoformat(
+                hold_expires_at.replace("Z", "+00:00")
+            )
+
+            if hold_expiry.tzinfo is None:
+                hold_expiry = hold_expiry.replace(tzinfo=timezone.utc)
+
+            if hold_expiry > now_utc:
+                busy.append(
+                    (_minutes(b["start_time"]), _minutes(b["end_time"]))
+                )
+
+        except (ValueError, TypeError):
+            logger.warning(
+                "Invalid hold_expires_at on pending booking: %s",
+                hold_expires_at,
+            )
 
     # Merge in Google Calendar busy intervals (if configured + employee has calendar id)
     emp_cal = emp.get("google_calendar_id") or ""
@@ -593,29 +647,61 @@ async def availability(employee_id: str, service_id: str, date: str):
 def _gen_booking_code() -> str:
     return "GX" + "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(6))
 
-
 @api.post("/bookings")
 async def create_booking(body: BookingCreate):
-    svc = await db.services.find_one({"id": body.service_id, "active": True}, {"_id": 0})
-    emp = await db.employees.find_one({"id": body.employee_id, "active": True}, {"_id": 0})
+    svc = await db.services.find_one(
+        {"id": body.service_id, "active": True},
+        {"_id": 0},
+    )
+    emp = await db.employees.find_one(
+        {"id": body.employee_id, "active": True},
+        {"_id": 0},
+    )
+
     if not svc or not emp:
         raise HTTPException(404, "Service or employee not found")
 
-    # validate slot still open
-    avail = await availability(employee_id=body.employee_id, service_id=body.service_id, date=body.date)
+    # Make sure the slot is still available before starting payment.
+    avail = await availability(
+        employee_id=body.employee_id,
+        service_id=body.service_id,
+        date=body.date,
+    )
+
     if body.start_time not in avail["slots"]:
-        raise HTTPException(409, "Selected time is no longer available. Please pick another slot.")
+        raise HTTPException(
+            409,
+            "Selected time is no longer available. Please pick another slot.",
+        )
 
     end_m = _minutes(body.start_time) + int(svc["duration"])
     end_time = _hhmm(end_m)
 
-    # customer upsert
-    cust = await db.customers.find_one({"phone": body.customer_phone}, {"_id": 0})
+    # Create/update customer.
+    cust = await db.customers.find_one(
+        {"phone": body.customer_phone},
+        {"_id": 0},
+    )
+
     if not cust:
-        cust = Customer(name=body.customer_name, phone=body.customer_phone, email=body.customer_email, notes=body.notes).model_dump()
-        await db.customers.insert_one(cust)
+        cust = Customer(
+            name=body.customer_name,
+            phone=body.customer_phone,
+            email=body.customer_email,
+            notes=body.notes,
+        ).model_dump()
+
+        await db.customers.insert_one(dict(cust))
     else:
-        await db.customers.update_one({"phone": body.customer_phone}, {"$set": {"name": body.customer_name, "email": body.customer_email or cust.get("email", "")}})
+        await db.customers.update_one(
+            {"phone": body.customer_phone},
+            {
+                "$set": {
+                    "name": body.customer_name,
+                    "email": body.customer_email or cust.get("email", ""),
+                }
+            },
+        )
 
     booking = Booking(
         booking_code=_gen_booking_code(),
@@ -640,75 +726,196 @@ async def create_booking(body: BookingCreate):
         payment_status="unpaid",
     ).model_dump()
 
-    await db.bookings.insert_one(booking)
+    booking["hold_expires_at"] = (
+        datetime.now(timezone.utc) + timedelta(minutes=BOOKING_HOLD_MINUTES)
+    ).isoformat()
 
-    # create mock razorpay-like order
-    order = {
-        "id": "order_" + secrets.token_hex(8),
-        "amount": int(booking["deposit"] * 100),
-        "currency": "INR",
-        "booking_id": booking["id"],
-        "mode": os.environ.get("RAZORPAY_MODE", "mock"),
-        "created_at": now_iso(),
+    # Create a REAL Razorpay order.
+    amount_paise = int(round(float(booking["deposit"]) * 100))
+
+    if amount_paise <= 0:
+        raise HTTPException(400, "Invalid booking deposit amount")
+
+    try:
+        razorpay_order = razorpay_client.order.create(
+            {
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": booking["booking_code"],
+                "notes": {
+                    "booking_id": booking["id"],
+                    "service": booking["service_name"],
+                },
+            }
+        )
+    except Exception:
+        logger.exception("Razorpay order creation failed")
+        raise HTTPException(
+            502,
+            "Unable to initialise payment. Please try again.",
+        )
+
+    # Store the pending booking only after Razorpay accepted the order.
+    booking["razorpay_order_id"] = razorpay_order["id"]
+
+    await db.bookings.insert_one(dict(booking))
+
+    await db.payment_orders.insert_one(
+        {
+            "id": razorpay_order["id"],
+            "booking_id": booking["id"],
+            "amount": razorpay_order["amount"],
+            "currency": razorpay_order["currency"],
+            "status": razorpay_order.get("status", "created"),
+            "created_at": now_iso(),
+        }
+    )
+
+    return {
+        "booking": clean(dict(booking)),
+        "order": {
+            "id": razorpay_order["id"],
+            "amount": razorpay_order["amount"],
+            "currency": razorpay_order["currency"],
+            "key_id": RAZORPAY_KEY_ID,
+        },
     }
-    await db.payment_orders.insert_one({**order})
-
-    return {"booking": clean(booking), "order": clean(order)}
-
-
 @api.post("/payments/verify")
 async def verify_payment(body: PaymentVerify):
-    booking = await db.bookings.find_one({"id": body.booking_id}, {"_id": 0})
+    # Find the pending booking.
+    booking = await db.bookings.find_one(
+        {"id": body.booking_id},
+        {"_id": 0},
+    )
+
     if not booking:
         raise HTTPException(404, "Booking not found")
 
-    mode = os.environ.get("RAZORPAY_MODE", "mock")
-    verified = False
-    payment_id = body.razorpay_payment_id or ("pay_" + secrets.token_hex(8))
+    # Do not process the same successful payment twice.
+    if booking.get("payment_status") == "paid":
+        return {
+            "success": True,
+            "booking": booking,
+        }
 
-    if mode == "mock":
-        verified = True
-    else:
-        secret = os.environ.get("RAZORPAY_KEY_SECRET", "")
-        expected = hmac.new(secret.encode(), f"{body.razorpay_order_id}|{body.razorpay_payment_id}".encode(), hashlib.sha256).hexdigest()
-        verified = hmac.compare_digest(expected, body.razorpay_signature or "")
+    # The order ID returned by the frontend must belong to this booking.
+    stored_order_id = booking.get("razorpay_order_id")
 
-    if not verified:
+    if not stored_order_id:
+        raise HTTPException(400, "Booking has no Razorpay order")
+
+    if body.razorpay_order_id != stored_order_id:
+        raise HTTPException(400, "Razorpay order ID does not match booking")
+
+    # Verify the Razorpay payment signature using Razorpay's SDK.
+    try:
+        razorpay_client.utility.verify_payment_signature(
+            {
+                "razorpay_order_id": body.razorpay_order_id,
+                "razorpay_payment_id": body.razorpay_payment_id,
+                "razorpay_signature": body.razorpay_signature,
+            }
+        )
+    except Exception:
+        logger.exception(
+            "Razorpay payment verification failed for booking %s",
+            body.booking_id,
+        )
         raise HTTPException(400, "Payment verification failed")
 
-    await db.bookings.update_one({"id": body.booking_id}, {"$set": {
-        "status": "confirmed",
-        "payment_status": "paid",
-        "payment_id": payment_id,
-    }})
+    # Signature is valid. Confirm the booking.
+    await db.bookings.update_one(
+        {"id": body.booking_id},
+        {
+            "$set": {
+                "status": "confirmed",
+                "payment_status": "paid",
+                "payment_id": body.razorpay_payment_id,
+            }
+        },
+    )
 
-    await db.payments.insert_one({
-        "id": new_id(),
-        "booking_id": body.booking_id,
-        "payment_id": payment_id,
-        "amount": booking["deposit"],
-        "currency": "INR",
-        "status": "captured",
-        "mode": mode,
-        "created_at": now_iso(),
-    })
+    # Record the successful payment.
+    await db.payments.update_one(
+        {"payment_id": body.razorpay_payment_id},
+        {
+            "$setOnInsert": {
+                "id": new_id(),
+                "booking_id": body.booking_id,
+                "payment_id": body.razorpay_payment_id,
+                "razorpay_order_id": body.razorpay_order_id,
+                "amount": booking["deposit"],
+                "currency": "INR",
+                "status": "captured",
+                "mode": "razorpay",
+                "created_at": now_iso(),
+            }
+        },
+        upsert=True,
+    )
 
-    # update customer aggregates
-    await db.customers.update_one({"id": booking["customer_id"]}, {"$inc": {"total_visits": 1, "lifetime_spend": booking["deposit"]}, "$set": {"last_visit": booking["date"]}})
+    # Update customer aggregates only once.
+    await db.customers.update_one(
+        {"id": booking["customer_id"]},
+        {
+            "$inc": {
+                "total_visits": 1,
+                "lifetime_spend": booking["deposit"],
+            },
+            "$set": {
+                "last_visit": booking["date"],
+            },
+        },
+    )
 
-    # Push to Google Calendar (best-effort, non-blocking failure)
-    emp = await db.employees.find_one({"id": booking["employee_id"]}, {"_id": 0})
-    cal_id = (emp or {}).get("google_calendar_id") or None
-    fresh = await db.bookings.find_one({"id": body.booking_id}, {"_id": 0})
-    ev = await gcal.create_event_for_booking(db, fresh, cal_id)
-    if ev:
-        await db.bookings.update_one({"id": body.booking_id}, {"$set": {
-            "google_event_id": ev["event_id"],
-            "google_calendar_id": ev["calendar_id"],
-        }})
+    # Fetch the confirmed booking before creating the calendar event.
+    fresh = await db.bookings.find_one(
+        {"id": body.booking_id},
+        {"_id": 0},
+    )
 
-    updated = await db.bookings.find_one({"id": body.booking_id}, {"_id": 0})
-    return {"success": True, "booking": updated}
+    # Create the Google Calendar event after successful payment.
+    # Calendar failure must not undo a successful Razorpay payment.
+    try:
+        emp = await db.employees.find_one(
+            {"id": booking["employee_id"]},
+            {"_id": 0},
+        )
+
+        cal_id = (emp or {}).get("google_calendar_id") or None
+
+        ev = await gcal.create_event_for_booking(
+            db,
+            fresh,
+            cal_id,
+        )
+
+        if ev:
+            await db.bookings.update_one(
+                {"id": body.booking_id},
+                {
+                    "$set": {
+                        "google_event_id": ev["event_id"],
+                        "google_calendar_id": ev["calendar_id"],
+                    }
+                },
+            )
+
+    except Exception:
+        logger.exception(
+            "Google Calendar event creation failed for booking %s",
+            body.booking_id,
+        )
+
+    updated = await db.bookings.find_one(
+        {"id": body.booking_id},
+        {"_id": 0},
+    )
+
+    return {
+        "success": True,
+        "booking": updated,
+    }
 
 
 @api.get("/bookings/{booking_id}")
@@ -745,8 +952,35 @@ async def admin_me(admin=Depends(get_current_admin)):
 # ============================================================
 # Admin CRUD (categories/services/employees/content/business/bookings)
 # ============================================================
+
+async def expire_old_booking_holds():
+    """Mark expired unpaid booking holds as expired."""
+    now_utc = datetime.now(timezone.utc).isoformat()
+
+    result = await db.bookings.update_many(
+        {
+            "status": "pending",
+            "payment_status": {"$ne": "paid"},
+            "hold_expires_at": {"$exists": True, "$lte": now_utc},
+        },
+        {
+            "$set": {
+                "status": "expired",
+            }
+        },
+    )
+
+    if result.modified_count:
+        logger.info(
+            "Expired %s unpaid booking hold(s).",
+            result.modified_count,
+        )
+
+
 @api.get("/admin/stats")
 async def admin_stats(admin=Depends(get_current_admin)):
+    await expire_old_booking_holds()
+    
     today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
     total_bookings = await db.bookings.count_documents({})
     today_bookings = await db.bookings.count_documents({"date": today})
@@ -786,6 +1020,8 @@ async def admin_stats(admin=Depends(get_current_admin)):
 
 @api.get("/admin/bookings")
 async def admin_bookings(admin=Depends(get_current_admin), status: Optional[str] = None, q: Optional[str] = None):
+    await expire_old_booking_holds()
+    
     query: Dict[str, Any] = {}
     if status:
         query["status"] = status

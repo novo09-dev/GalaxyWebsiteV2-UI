@@ -233,6 +233,7 @@ export default function Booking() {
   const [slots, setSlots] = useState([]);
   const [business, setBusiness] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -293,22 +294,141 @@ export default function Booking() {
   const back = () => setStep((s) => Math.max(0, s - 1));
   const jumpTo = (i) => setStep(i);
 
-  const submitBooking = async () => {
+   const submitBooking = async () => {
     setLoading(true);
+
     try {
-      const { booking, order } = await createBooking({
-        service_id: data.serviceId, employee_id: data.employeeId, date: data.date, start_time: data.time,
-        customer_name: data.name, customer_phone: data.phone, customer_email: data.email, notes: data.notes,
+      let booking;
+      let order;
+
+      // If this customer already started payment for this slot,
+      // reuse the same booking and Razorpay order.
+      if (pendingPayment) {
+        booking = pendingPayment.booking;
+        order = pendingPayment.order;
+      } else {
+        // First payment attempt:
+        // create the temporary booking hold and Razorpay order.
+        const created = await createBooking({
+          service_id: data.serviceId,
+          employee_id: data.employeeId,
+          date: data.date,
+          start_time: data.time,
+          customer_name: data.name,
+          customer_phone: data.phone,
+          customer_email: data.email,
+          notes: data.notes,
+        });
+
+        booking = created.booking;
+        order = created.order;
+
+        // Remember this booking/order so payment can be retried
+        // without trying to book the same slot again.
+        setPendingPayment({
+          booking,
+          order,
+        });
+      }
+
+      // Make sure Razorpay Checkout has loaded.
+      if (!window.Razorpay) {
+        throw new Error(
+          "Razorpay Checkout could not load. Please refresh and try again."
+        );
+      }
+
+      const options = {
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Galaxy Salon & Spa",
+        description: `Booking deposit · ${svc?.name || "Salon Service"}`,
+        order_id: order.id,
+
+        prefill: {
+          name: data.name,
+          email: data.email || "",
+          contact: data.phone,
+        },
+
+        notes: {
+          booking_id: booking.id,
+        },
+
+        theme: {
+          color: "#C21A1A",
+        },
+
+        // Razorpay calls this after successful payment.
+        handler: async function (response) {
+          try {
+            toast.loading("Verifying payment...", { id: "pay" });
+
+            const res = await verifyPayment({
+              booking_id: booking.id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            // Payment succeeded, so we no longer need the pending retry.
+            setPendingPayment(null);
+
+            toast.success("Payment verified · Booking confirmed", {
+              id: "pay",
+            });
+
+            nav(`/booking/${res.booking.id}`);
+          } catch (error) {
+            toast.error(
+              error?.response?.data?.detail ||
+                "Payment could not be verified. Your appointment was not confirmed.",
+              { id: "pay" }
+            );
+          } finally {
+            setLoading(false);
+          }
+        },
+
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+
+            // IMPORTANT:
+            // Do not clear pendingPayment here.
+            // The customer can press Pay again and retry.
+            toast.error(
+              "Payment was not completed. You can try the payment again.",
+              { id: "pay" }
+            );
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+
+      razorpay.on("payment.failed", function () {
+        setLoading(false);
+
+        // IMPORTANT:
+        // Keep pendingPayment so Pay can retry the same booking/order.
+        toast.error(
+          "Payment failed. You can try the payment again.",
+          { id: "pay" }
+        );
       });
-      toast.loading("Processing payment...", { id: "pay" });
-      await new Promise((r) => setTimeout(r, 1200));
-      const res = await verifyPayment({ booking_id: booking.id, razorpay_order_id: order.id });
-      toast.success("Payment verified · Booking confirmed", { id: "pay" });
-      nav(`/booking/${res.booking.id}`);
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Booking failed. Please try again.", { id: "pay" });
-    } finally {
+
+      razorpay.open();
+    } catch (error) {
       setLoading(false);
+
+      toast.error(
+        error?.response?.data?.detail ||
+          error?.message ||
+          "Unable to start payment. Please try again.",
+        { id: "pay" }
+      );
     }
   };
 
@@ -357,7 +477,17 @@ export default function Booking() {
                       {cats.map((c) => (
                         <button
                           key={c.id}
-                          onClick={() => setData({ ...data, categoryId: c.id, serviceId: null })}
+                          onClick={() => {
+                            setPendingPayment(null);
+                            setData({
+                              ...data,
+                              categoryId: c.id,
+                              serviceId: null,
+                              employeeId: null,
+                              date: null,
+                              time: null,
+                            });
+                          }}
                           className={`group relative overflow-hidden border text-left gx-card-hover ${data.categoryId === c.id ? "border-[#C21A1A]" : "border-[#1B1B1E]"} bg-[#111113]`}
                           data-testid={`cat-${c.slug}`}
                         >
@@ -392,7 +522,10 @@ export default function Booking() {
                               return (
                                 <button
                                   key={s.id}
-                                  onClick={() => setData({ ...data, serviceId: s.id })}
+                                  onClick={() => {
+                                    setPendingPayment(null);
+                                    setData({ ...data, serviceId: s.id });
+                                  }}
                                   className={`group relative overflow-hidden text-left flex items-stretch gap-0 border transition-all duration-300 ${selected ? "border-[#C21A1A] bg-[#150A0A] shadow-[0_10px_40px_-20px_rgba(194,26,26,0.4)]" : "border-[#1B1B1E] bg-[#111113] hover:border-[#2E2E33]"}`}
                                   data-testid={`svc-${s.id}`}
                                   aria-pressed={selected}
@@ -445,7 +578,10 @@ export default function Booking() {
                   {step === 2 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" data-testid="step-employee">
                       <button
-                        onClick={() => setData({ ...data, employeeId: employees[0]?.id })}
+                        onClick={() => {
+                          setPendingPayment(null);
+                          setData({ ...data, employeeId: employees[0]?.id });
+                        }}
                         className={`gx-card p-6 text-left ${employees[0] && data.employeeId === employees[0].id ? "border-[#C21A1A] bg-[#150A0A]" : ""}`}
                         data-testid="emp-any"
                       >
@@ -458,7 +594,10 @@ export default function Booking() {
                       {employees.map((e) => (
                         <button
                           key={e.id}
-                          onClick={() => setData({ ...data, employeeId: e.id })}
+                         onClick={() => {
+                            setPendingPayment(null);
+                            setData({ ...data, employeeId: e.id });
+                          }}
                           className={`gx-card p-3 text-left flex items-center gap-4 ${data.employeeId === e.id ? "border-[#C21A1A] bg-[#150A0A]" : ""}`}
                           data-testid={`emp-${e.id}`}
                         >
@@ -474,7 +613,13 @@ export default function Booking() {
 
                   {step === 3 && (
                     <div className="gx-panel p-6 md:p-8" data-testid="step-date">
-                      <DatePicker value={data.date} onChange={(iso) => setData({ ...data, date: iso, time: null })} />
+                      <DatePicker
+                        value={data.date}
+                        onChange={(iso) => {
+                          setPendingPayment(null);
+                          setData({ ...data, date: iso, time: null });
+                        }}
+                      />
                     </div>
                   )}
 
@@ -495,7 +640,10 @@ export default function Booking() {
                           {slots.map((t) => (
                             <button
                               key={t}
-                              onClick={() => setData({ ...data, time: t })}
+                              onClick={() => {
+                                setPendingPayment(null);
+                                setData({ ...data, time: t });
+                              }}
                               className={`py-3.5 text-sm border rounded transition-all ${
                                 data.time === t
                                   ? "bg-[#C21A1A] border-[#C21A1A] text-white font-medium"
