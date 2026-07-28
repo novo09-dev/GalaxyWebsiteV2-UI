@@ -1,5 +1,5 @@
-import { Link } from "react-router-dom";
-import { Phone, MapPin, Instagram, Facebook, Mail, ArrowUpRight, Clock } from "lucide-react";
+﻿import { Link } from "react-router-dom";
+import { Phone, MapPin, Instagram, Facebook, Mail, ArrowUpRight, Clock, Globe } from "lucide-react";
 import BrandMark from "./primitives/BrandMark";
 
 export default function Footer({ business }) {
@@ -14,7 +14,7 @@ export default function Footer({ business }) {
       <div className="border-b border-[#17171A]">
         <div className="gx-container py-14 md:py-20 flex flex-col md:flex-row md:items-end md:justify-between gap-8">
           <div>
-            <p className="eyebrow mb-5">Hair · Beauty · Style</p>
+            <p className="eyebrow mb-5">Hair Â· Beauty Â· Style</p>
             <p className="font-editorial text-5xl md:text-7xl lg:text-8xl leading-[0.95] text-[#F2EDE4]">
               Come see us <span className="italic-accent text-[#C21A1A]">soon.</span>
             </p>
@@ -30,7 +30,7 @@ export default function Footer({ business }) {
         <div className="md:col-span-5">
           <div className="mb-5"><BrandMark variant="logo" size="lg" /></div>
           <p className="text-[#8C8880] max-w-md leading-relaxed text-sm">
-            {b.about || "A unisex Hair, Beauty & Style studio. Expertise, hygiene and genuine care — always."}
+            {b.about || "A unisex Hair, Beauty & Style studio. Expertise, hygiene and genuine care â€” always."}
           </p>
           <div className="flex gap-3 mt-6">
             {b.instagram && (
@@ -91,12 +91,56 @@ export default function Footer({ business }) {
 
       <div className="border-t border-[#17171A]">
         <div className="gx-container py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#6E6A62]">
-          <p>© {year} Galaxy · Hair · Beauty · Style. All rights reserved.</p>
+          <p>Â© {year} Galaxy Â· Hair Â· Beauty Â· Style. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <p className="tracking-widest uppercase text-[10px]">Crafted with care in Agartala</p>
             <button onClick={scrollTop} className="pill-link" aria-label="Back to top">
               Back to top <ArrowUpRight size={11} />
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Creator attribution */}
+      <div className="border-t border-[#17171A]">
+        <div className="gx-container py-8">
+          <div className="max-w-xl">
+            <p className="tracking-[0.18em] uppercase text-[10px] text-[#6E6A62] mb-2">
+              Website by
+            </p>
+
+            <p className="text-sm font-medium text-[#F2EDE4] mb-2">
+              Novohjyoti Sinha
+            </p>
+
+            <p className="text-xs text-[#8C8880] leading-relaxed mb-4">
+              Building practical systems that{" "}
+              <span className="text-[#60A5FA] font-medium">help</span>{" "}
+              people and businesses{" "}
+              <span className="text-[#2DD4BF] font-medium">do</span>{" "}
+              their best work.
+            </p>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+              <a
+                href="mailto:itsnovohjyoti@gmail.com"
+                className="inline-flex items-center gap-2 text-xs text-[#8C8880] hover:text-[#C21A1A] transition-colors duration-200"
+              >
+                <Mail size={12} />
+                itsnovohjyoti@gmail.com
+              </a>
+
+              <a
+                href="https://novohjyoti-systems.preview.emergentagent.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-xs text-[#8C8880] hover:text-[#C21A1A] transition-colors duration-200"
+              >
+                <Globe size={12} />
+                Portfolio
+                <ArrowUpRight size={11} />
+              </a>
+            </div>
           </div>
         </div>
       </div>
