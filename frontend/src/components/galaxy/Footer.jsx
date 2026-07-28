@@ -14,7 +14,7 @@ export default function Footer({ business }) {
       <div className="border-b border-[#17171A]">
         <div className="gx-container py-14 md:py-20 flex flex-col md:flex-row md:items-end md:justify-between gap-8">
           <div>
-            <p className="eyebrow mb-5">Hair Â· Beauty Â· Style</p>
+            <p className="eyebrow mb-5">Hair · Beauty · Style</p>
             <p className="font-editorial text-5xl md:text-7xl lg:text-8xl leading-[0.95] text-[#F2EDE4]">
               Come see us <span className="italic-accent text-[#C21A1A]">soon.</span>
             </p>
@@ -30,7 +30,7 @@ export default function Footer({ business }) {
         <div className="md:col-span-5">
           <div className="mb-5"><BrandMark variant="logo" size="lg" /></div>
           <p className="text-[#8C8880] max-w-md leading-relaxed text-sm">
-            {b.about || "A unisex Hair, Beauty & Style studio. Expertise, hygiene and genuine care â€” always."}
+            {b.about || "A unisex Hair, Beauty & Style studio. Expertise, hygiene and genuine care — always."}
           </p>
           <div className="flex gap-3 mt-6">
             {b.instagram && (
@@ -91,7 +91,7 @@ export default function Footer({ business }) {
 
       <div className="border-t border-[#17171A]">
         <div className="gx-container py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#6E6A62]">
-          <p>Â© {year} Galaxy Â· Hair Â· Beauty Â· Style. All rights reserved.</p>
+          <p>© {year} Galaxy · Hair · Beauty · Style. All rights reserved.</p>
           <div className="flex items-center gap-6">
             <p className="tracking-widest uppercase text-[10px]">Crafted with care in Agartala</p>
             <button onClick={scrollTop} className="pill-link" aria-label="Back to top">

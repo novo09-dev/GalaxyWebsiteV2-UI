@@ -33,7 +33,7 @@ function StepRail({ current, onJump, allowJump }) {
     <div className="mb-12">
       <div className="flex items-center justify-between mb-4">
         <p className="eyebrow" data-testid="booking-step-label">
-          Step {current + 1} of {STEPS.length} Â· <span className="text-[#F2EDE4]">{STEPS[current].label}</span>
+          Step {current + 1} of {STEPS.length} · <span className="text-[#F2EDE4]">{STEPS[current].label}</span>
         </p>
         <p className="text-[10px] tracking-widest uppercase text-[#8C8880]">{Math.round(pct)}% complete</p>
       </div>
@@ -117,7 +117,7 @@ function Summary({
               {selectedServices.map((service) => (
                 <div key={service.id}>
                   <p className="font-editorial text-xl leading-tight text-[#F2EDE4]">{service.name}</p>
-                  <p className="text-[#8C8880] text-xs mt-1">{service.duration} min Â· â‚¹{service.price.toLocaleString()}</p>
+                  <p className="text-[#8C8880] text-xs mt-1">{service.duration} min · ₹{service.price.toLocaleString()}</p>
                 </div>
               ))}
             </div>
@@ -134,14 +134,14 @@ function Summary({
           {date && (
             <div>
               <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-1">Date &amp; time</p>
-              <p className="text-[#F2EDE4]">{date}{time ? ` Â· ${time}${endTime ? ` â€“ ${endTime}` : ""}` : ""}</p>
+              <p className="text-[#F2EDE4]">{date}{time ? ` · ${time}${endTime ? ` – ${endTime}` : ""}` : ""}</p>
             </div>
           )}
 
           <div className="border-t border-[#1D1D20] pt-5 space-y-3">
-            <Row label="Total" value={`â‚¹${totalPrice.toLocaleString()}`} accent />
-            <Row label="Deposit today" value={`â‚¹${totalDeposit.toLocaleString()}`} />
-            <Row label="Pay at salon" value={`â‚¹${totalBalance.toLocaleString()}`} muted />
+            <Row label="Total" value={`₹${totalPrice.toLocaleString()}`} accent />
+            <Row label="Deposit today" value={`₹${totalDeposit.toLocaleString()}`} />
+            <Row label="Pay at salon" value={`₹${totalBalance.toLocaleString()}`} muted />
           </div>
 
           <p className="text-[11px] leading-relaxed text-[#8C8880] pt-1">
@@ -390,7 +390,7 @@ export default function Booking() {
         amount: order.amount,
         currency: order.currency,
         name: "Galaxy Salon & Spa",
-        description: `Booking deposit Â· ${selectedServices.map((s) => s.name).join(", ") || "Salon Services"}`,
+        description: `Booking deposit · ${selectedServices.map((s) => s.name).join(", ") || "Salon Services"}`,
         order_id: order.id,
 
         prefill: {
@@ -422,7 +422,7 @@ export default function Booking() {
             // Payment succeeded, so we no longer need the pending retry.
             setPendingPayment(null);
 
-            toast.success("Payment verified Â· Booking confirmed", {
+            toast.success("Payment verified · Booking confirmed", {
               id: "pay",
             });
 
@@ -509,7 +509,7 @@ export default function Booking() {
               </EditorialHeading>
             </div>
             <p className="text-[#8C8880] text-sm max-w-sm leading-relaxed">
-              Eight quick steps. A small deposit secures your slot â€” the rest is settled at the salon.
+              Eight quick steps. A small deposit secures your slot — the rest is settled at the salon.
             </p>
           </div>
 
@@ -608,12 +608,12 @@ export default function Booking() {
                                       <p className="text-[11px] text-[#8C8880] mt-2 flex items-center gap-2 md:gap-3 tracking-widest uppercase flex-wrap">
                                         <span className="flex items-center gap-1"><Clock size={11} />{s.duration}m</span>
                                         <span className="opacity-40">/</span>
-                                        <span>Deposit â‚¹{s.deposit.toLocaleString()}</span>
+                                        <span>Deposit ₹{s.deposit.toLocaleString()}</span>
                                       </p>
                                     </div>
                                     <div className="text-right shrink-0">
                                       <p className="text-[9px] uppercase tracking-widest text-[#8C8880]">Total</p>
-                                      <p className="font-editorial text-xl md:text-2xl text-[#C21A1A] mt-1 leading-none">â‚¹{s.price.toLocaleString()}</p>
+                                      <p className="font-editorial text-xl md:text-2xl text-[#C21A1A] mt-1 leading-none">₹{s.price.toLocaleString()}</p>
                                       {selected && (
                                         <span className="inline-flex items-center gap-1 mt-2 text-[10px] tracking-widest uppercase text-[#C21A1A]">
                                           <Check size={11} /> Selected
@@ -648,7 +648,7 @@ export default function Booking() {
                           <Sparkles size={14} className="text-[#C21A1A]" />
                         </div>
                         <p className="font-editorial text-xl text-[#F2EDE4]">First Available</p>
-                        <p className="text-xs text-[#8C8880] mt-2">Fastest confirmation Â· any expert.</p>
+                        <p className="text-xs text-[#8C8880] mt-2">Fastest confirmation · any expert.</p>
                       </button>
                       {employees.map((e) => (
                         <button
@@ -707,7 +707,7 @@ export default function Booking() {
                     <div data-testid="step-time">
                       <div className="flex items-center gap-3 mb-5">
                         <span className="red-rule" />
-                        <p className="eyebrow text-[#D9D3C6]">Available slots Â· {data.date}</p>
+                        <p className="eyebrow text-[#D9D3C6]">Available slots · {data.date}</p>
                       </div>
                       {slots.length === 0 && (
                         <div className="gx-panel p-8 text-center mb-6">
@@ -836,7 +836,7 @@ export default function Booking() {
                         <ReviewField label="Professional" value={emp?.name} />
                         <ReviewField label="Duration" value={`${totalDuration} min`} />
                         <ReviewField label="Date" value={data.date} />
-                        <ReviewField label="Time" value={`${data.time} â€“ ${endTime}`} />
+                        <ReviewField label="Time" value={`${data.time} – ${endTime}`} />
                         <ReviewField label="Name" value={data.name} />
                         <ReviewField label="Phone" value={data.phone} />
                         {data.email && <ReviewField label="Email" value={data.email} />}
@@ -845,15 +845,15 @@ export default function Booking() {
                       <div className="border-t border-[#1D1D20] pt-6 grid grid-cols-3 gap-6 text-sm">
                         <div>
                           <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Total</p>
-                          <p className="font-editorial text-2xl text-[#F2EDE4]">â‚¹{totalPrice.toLocaleString()}</p>
+                          <p className="font-editorial text-2xl text-[#F2EDE4]">₹{totalPrice.toLocaleString()}</p>
                         </div>
                         <div>
                           <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Deposit today</p>
-                          <p className="font-editorial text-2xl text-[#C21A1A]">â‚¹{totalDeposit.toLocaleString()}</p>
+                          <p className="font-editorial text-2xl text-[#C21A1A]">₹{totalDeposit.toLocaleString()}</p>
                         </div>
                         <div>
                           <p className="text-[10px] tracking-[0.28em] uppercase text-[#8C8880] mb-2">Pay at salon</p>
-                          <p className="font-editorial text-2xl text-[#D9D3C6]">â‚¹{totalBalance.toLocaleString()}</p>
+                          <p className="font-editorial text-2xl text-[#D9D3C6]">₹{totalBalance.toLocaleString()}</p>
                         </div>
                       </div>
 
@@ -884,11 +884,11 @@ export default function Booking() {
                       <p className="text-[#8C8880] text-sm mt-4 max-w-md mx-auto leading-relaxed">
                         You&apos;ll pay{" "}
                         <span className="text-[#F2EDE4]">
-                          â‚¹{totalDeposit.toLocaleString()}
+                          ₹{totalDeposit.toLocaleString()}
                         </span>{" "}
                         today. The remaining{" "}
                         <span className="text-[#F2EDE4]">
-                          â‚¹{totalBalance.toLocaleString()}
+                          ₹{totalBalance.toLocaleString()}
                         </span>{" "}
                         is settled at the salon after your services.
                       </p>
@@ -902,17 +902,17 @@ export default function Booking() {
                         {loading ? (
                           <>
                             Processing
-                            <span className="inline-block ml-1 animate-pulse">â€¦</span>
+                            <span className="inline-block ml-1 animate-pulse">…</span>
                           </>
                         ) : (
                           <>
-                            Pay â‚¹{totalDeposit.toLocaleString()} <ArrowRight size={14} />
+                            Pay ₹{totalDeposit.toLocaleString()} <ArrowRight size={14} />
                           </>
                         )}
                       </button>
 
                       <p className="text-[10px] text-[#6E6A62] mt-8 tracking-[0.28em] uppercase">
-                        Powered by Razorpay Â· 256-bit secure
+                        Powered by Razorpay · 256-bit secure
                       </p>
                     </div>
                   )}
