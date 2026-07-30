@@ -43,7 +43,7 @@ export default function ServiceCard({ service, categoryName, testid, size = "md"
           <span>Deposit ₹{service.deposit.toLocaleString()}</span>
         </div>
         <div className="text-right shrink-0">
-          <p className="font-editorial text-2xl leading-none text-[#F2EDE4]">₹{service.price.toLocaleString()}</p>
+          <p className="font-editorial text-2xl leading-none text-[#C21A1A]">₹{service.price.toLocaleString()}</p>
         </div>
       </div>
     </Link>

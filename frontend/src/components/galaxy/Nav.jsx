@@ -36,9 +36,15 @@ export default function Nav() {
   return (
     <header
       data-testid="site-nav"
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? "bg-[#08080A]/85 backdrop-blur-md border-b border-[#17171A]" : "bg-gradient-to-b from-black/60 to-transparent"}`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        open
+          ? "bg-[#08080A]/90 backdrop-blur-xl border-b border-[#17171A]"
+          : scrolled
+            ? "bg-[#08080A]/85 backdrop-blur-md border-b border-[#17171A]"
+            : "bg-gradient-to-b from-black/60 to-transparent"
+      }`}
     >
-      <div className={`gx-container flex items-center justify-between transition-[height] duration-500 ${scrolled ? "h-20 md:h-24" : "h-24 md:h-28"}`}>
+      <div className={`gx-container relative z-[70] flex items-center justify-between transition-[height] duration-500 ${scrolled ? "h-20 md:h-24" : "h-24 md:h-28"}`}>
         <Link
           to="/"
           data-testid="nav-logo"
@@ -87,7 +93,9 @@ export default function Nav() {
 
       {/* Mobile full-screen editorial overlay */}
       <div
-        className={`lg:hidden fixed inset-0 top-24 bg-[#08080A]/90 backdrop-blur-md transition-all duration-500 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        className={`lg:hidden fixed left-0 right-0 bottom-0 top-24 z-[60] bg-[#08080A] transition-opacity duration-300 ${
+          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
         data-testid="nav-mobile"
         aria-hidden={!open}
       >
