@@ -12,7 +12,10 @@ from typing import List, Optional, Any, Dict
 from datetime import datetime, timezone, timedelta, time as dtime
 from bson import ObjectId
 
-from backend import gcal
+try:
+    from backend import gcal
+except ModuleNotFoundError:
+    import gcal
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
