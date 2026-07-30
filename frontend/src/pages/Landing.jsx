@@ -12,7 +12,7 @@ import TestimonialCard from "../components/galaxy/cards/TestimonialCard";
 import FeatureItem from "../components/galaxy/cards/FeatureItem";
 import GalleryTile from "../components/galaxy/cards/GalleryTile";
 import {
-  getBusiness, getHeroSlides, getServices, getEmployees,
+  getBusiness, getHeroSlides, getServices, getPopularServices, getEmployees,
   getGallery, getTestimonials, getFAQs, getCategories,
 } from "../lib/api";
 import {
@@ -202,11 +202,41 @@ function WhyGalaxy({ business }) {
 /* ==================================================================
  * FEATURED SERVICES — bento (large + supporting cards)
  * ================================================================== */
-function FeaturedServices({ services, categories }) {
-  const featured = services.filter((s) => s.featured);
-  const catMap = Object.fromEntries((categories || []).map((c) => [c.id, c.name]));
+function FeaturedServices({ services, categories, popularServices }) {
+  const MAX_FEATURED = 8;
+
+  // Manual featured services keep priority, following their existing order.
+  const manualFeatured = services.filter((service) => service.featured);
+
+  // Popularity endpoint returns service IDs ranked by paid booking count.
+  const serviceById = Object.fromEntries(
+    services.map((service) => [service.id, service])
+  );
+
+  const popularRanked = (popularServices || [])
+    .map((item) => serviceById[item.service_id])
+    .filter(Boolean);
+
+  // Manual selections come first. Popular services fill any remaining slots.
+  // The Set prevents the same service appearing twice.
+  const selectedIds = new Set();
+  const featured = [];
+
+  for (const service of [...manualFeatured, ...popularRanked]) {
+    if (featured.length >= MAX_FEATURED) break;
+
+    if (!selectedIds.has(service.id)) {
+      selectedIds.add(service.id);
+      featured.push(service);
+    }
+  }
+
+  const catMap = Object.fromEntries(
+    (categories || []).map((c) => [c.id, c.name])
+  );
+
   const [hero, ...rest] = featured;
-  const shown = rest.slice(0, 7);
+  const shown = rest.slice(0, MAX_FEATURED - 1);
 
   if (!hero) {
     return null;
@@ -604,18 +634,46 @@ function Contact({ business }) {
  * ================================================================== */
 export default function Landing() {
   const [state, setState] = useState({
-    slides: [], services: [], employees: [], gallery: [],
+    slides: [], services: [], popularServices: [], employees: [], gallery: [],
     testimonials: [], faqs: [], categories: [], business: null,
   });
 
   useEffect(() => {
     (async () => {
       try {
-        const [slides, services, employees, gallery, testimonials, faqs, categories, business] = await Promise.all([
-          getHeroSlides(), getServices(), getEmployees(), getGallery(),
-          getTestimonials(), getFAQs(), getCategories(), getBusiness(),
+        const [
+          slides,
+          services,
+          popularServices,
+          employees,
+          gallery,
+          testimonials,
+          faqs,
+          categories,
+          business,
+        ] = await Promise.all([
+          getHeroSlides(),
+          getServices(),
+          getPopularServices(8),
+          getEmployees(),
+          getGallery(),
+          getTestimonials(),
+          getFAQs(),
+          getCategories(),
+          getBusiness(),
         ]);
-        setState({ slides, services, employees, gallery, testimonials, faqs, categories, business });
+
+        setState({
+          slides,
+          services,
+          popularServices,
+          employees,
+          gallery,
+          testimonials,
+          faqs,
+          categories,
+          business,
+        });
       } catch (e) {
         // Fail quietly — sections gracefully hide when empty.
       }
@@ -634,7 +692,11 @@ export default function Landing() {
         <Hero slides={state.slides} />
         <Marquee items={marqueeItems} />
         <WhyGalaxy business={state.business} />
-        <FeaturedServices services={state.services} categories={state.categories} />
+        <FeaturedServices
+          services={state.services}
+          categories={state.categories}
+          popularServices={state.popularServices}
+        />
         <BookingBanner />
         <Team team={state.employees} />
         <Gallery items={state.gallery} />

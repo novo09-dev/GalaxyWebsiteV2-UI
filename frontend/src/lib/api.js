@@ -19,6 +19,8 @@ export const getBusiness = () => api.get("/business").then((r) => r.data);
 export const getHeroSlides = () => api.get("/hero-slides").then((r) => r.data);
 export const getCategories = () => api.get("/categories").then((r) => r.data);
 export const getServices = (params) => api.get("/services", { params }).then((r) => r.data);
+export const getPopularServices = (limit = 8) =>
+  api.get("/services/popular", { params: { limit } }).then((r) => r.data);
 export const getEmployees = (params) => api.get("/employees", { params }).then((r) => r.data);
 export const getGallery = () => api.get("/gallery").then((r) => r.data);
 export const getTestimonials = () => api.get("/testimonials").then((r) => r.data);

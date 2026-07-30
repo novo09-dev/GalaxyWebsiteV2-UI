@@ -12,7 +12,7 @@ from typing import List, Optional, Any, Dict
 from datetime import datetime, timezone, timedelta, time as dtime
 from bson import ObjectId
 
-import gcal
+from backend import gcal
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -499,6 +499,45 @@ async def list_services(category_id: Optional[str] = None, featured: Optional[bo
         q["featured"] = featured
     docs = await db.services.find(q, {"_id": 0}).sort("order", 1).to_list(500)
     return docs
+
+
+@api.get("/services/popular")
+async def list_popular_services(limit: int = 8):
+    # Keep the public endpoint bounded even if a caller requests a huge limit.
+    limit = max(1, min(limit, 8))
+
+    # Count only real, paid bookings. Pending, unpaid, expired, and
+    # cancelled bookings must not influence homepage popularity.
+    popular = await db.bookings.aggregate([
+        {
+            "$match": {
+                "payment_status": "paid",
+                "status": {"$in": ["confirmed", "completed"]},
+                "service_ids": {
+                    "$exists": True,
+                    "$type": "array",
+                    "$ne": [],
+                },
+            }
+        },
+        {"$unwind": "$service_ids"},
+        {
+            "$group": {
+                "_id": "$service_ids",
+                "booking_count": {"$sum": 1},
+            }
+        },
+        {"$sort": {"booking_count": -1, "_id": 1}},
+        {"$limit": limit},
+    ]).to_list(limit)
+
+    return [
+        {
+            "service_id": item["_id"],
+            "booking_count": item["booking_count"],
+        }
+        for item in popular
+    ]
 
 
 @api.get("/employees")
