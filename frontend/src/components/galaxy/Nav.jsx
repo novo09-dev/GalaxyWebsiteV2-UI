@@ -87,7 +87,7 @@ export default function Nav() {
 
       {/* Mobile full-screen editorial overlay */}
       <div
-        className={`lg:hidden fixed inset-0 top-24 bg-[#08080A] transition-all duration-500 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        className={`lg:hidden fixed inset-0 top-24 bg-[#08080A]/90 backdrop-blur-md transition-all duration-500 ${open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         data-testid="nav-mobile"
         aria-hidden={!open}
       >
@@ -97,6 +97,7 @@ export default function Nav() {
             <a
               key={n.label}
               href={n.to}
+              onClick={() => setOpen(false)}
               className="group flex items-center justify-between border-b border-[#17171A] py-6"
             >
               <span className="font-editorial text-3xl text-[#F2EDE4] group-hover:text-white transition-colors">
@@ -106,7 +107,7 @@ export default function Nav() {
               <ArrowUpRight size={20} className="text-[#C21A1A] opacity-0 group-hover:opacity-100 transition-opacity" />
             </a>
           ))}
-          <Link to="/book" className="btn-red w-full justify-center mt-10" data-testid="nav-mobile-book">
+          <Link to="/book" onClick={() => setOpen(false)} className="btn-red w-full justify-center mt-10" data-testid="nav-mobile-book">
             Book Appointment <ArrowUpRight size={14} />
           </Link>
         </div>

@@ -63,8 +63,8 @@ function Hero({ slides }) {
           <div className="flex items-center justify-between pb-4 md:pb-5 border-b border-white/10">
             <span className="flex items-center gap-3 text-[10px] md:text-[11px] tracking-[0.32em] uppercase text-[#D9D3C6]/80">
               <span className="red-rule" />
-              <span className="hidden sm:inline">Est. Agartala · Hair · Beauty · Style</span>
-              <span className="sm:hidden">Agartala · Since 2018</span>
+              <span className="hidden sm:inline">Hair · Beauty · Style</span>
+              <span className="sm:hidden">Agartala · Since 2015</span>
             </span>
             <span className="text-[10px] md:text-[11px] tracking-[0.32em] uppercase text-[#D9D3C6]/70 tabular-nums">
               {String(i + 1).padStart(2, "0")} <span className="opacity-40 mx-1">/</span> {String(slides.length).padStart(2, "0")}
@@ -151,10 +151,10 @@ function WhyGalaxy({ business }) {
     { icon: Shield, title: "Hygiene first", copy: "Sterilised tools, single-use where it matters, and a studio you would happily bring family into." },
   ];
   const stats = [
-    { n: "7+", l: "Years of experience" },
-    { n: "10K+", l: "Happy clients" },
+    { n: "11+", l: "Years of experience" },
+    { n: "20K+", l: "Happy clients" },
     { n: "20+", l: "Trained stylists" },
-    { n: "4.9", l: "Average rating", sup: "★" },
+    { n: "4.4", l: "Average rating", sup: "★" },
   ];
   return (
     <section id="about" className="section bg-[#0A0A0C]" data-testid="why-section">
@@ -624,7 +624,7 @@ export default function Landing() {
 
   const marqueeItems = useMemo(() => ([
     "Signature Cuts", "Colour & Highlights", "Keratin & Treatments",
-    "Beard Craft", "Facials", "Since 2018", "Agartala", "Unisex Studio",
+    "Beard Craft", "Facials", "Since 2015", "Agartala", "Unisex Studio",
   ]), []);
 
   return (
