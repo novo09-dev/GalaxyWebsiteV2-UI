@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { adminList, adminUpdate, adminCreate, adminDelete } from "../../lib/api";
 import { toast } from "sonner";
 import { Plus, Save, Trash2, Pencil, Star } from "lucide-react";
@@ -16,6 +16,7 @@ export default function AdminServices() {
   const [rows, setRows] = useState([]);
   const [cats, setCats] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const load = async () => {
     const [s, c] = await Promise.all([adminList("services"), adminList("categories")]);
@@ -44,7 +45,20 @@ export default function AdminServices() {
     duration: 30, price: 0, deposit: 0, image: "",
     featured: false, active: true, order: 999,
   });
+  const filteredRows =
+    categoryFilter === "all"
+      ? rows
+      : rows.filter((r) => r.category_id === categoryFilter);
+  const groupedRows = filteredRows.reduce((groups, service) => {
+    const groupName = service.group || "Other Services";
 
+    if (!groups[groupName]) {
+      groups[groupName] = [];
+    }
+
+    groups[groupName].push(service);
+    return groups;
+  }, {});
   return (
     <div data-testid="admin-services">
       <div className="mb-10 md:mb-12 flex items-end justify-between gap-6 flex-wrap">
@@ -116,6 +130,33 @@ export default function AdminServices() {
       )}
 
       <div className="gx-panel overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#1B1B1E] flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setCategoryFilter("all")}
+            className={`px-4 py-2 text-[10px] tracking-[0.18em] uppercase border transition-colors ${
+              categoryFilter === "all"
+                ? "border-[#C21A1A] bg-[#C21A1A] text-white"
+                : "border-[#26262A] text-[#8C8880] hover:text-[#F2EDE4] hover:border-[#3A3A3E]"
+            }`}
+          >
+            All Services
+          </button>
+
+          {cats.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setCategoryFilter(c.id)}
+              className={`px-4 py-2 text-[10px] tracking-[0.18em] uppercase border transition-colors ${
+                categoryFilter === c.id
+                  ? "border-[#C21A1A] bg-[#C21A1A] text-white"
+                  : "border-[#26262A] text-[#8C8880] hover:text-[#F2EDE4] hover:border-[#3A3A3E]"
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -130,25 +171,62 @@ export default function AdminServices() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t border-[#1B1B1E] hover:bg-[#0E0E10] transition-colors">
-                  <td className="px-5 py-4 text-[#F2EDE4]">{r.name}</td>
-                  <td className="px-5 py-4 text-[#8C8880]">{r.group}</td>
-                  <td className="px-5 py-4 text-right text-[#D9D3C6]">{r.duration}m</td>
-                  <td className="px-5 py-4 text-right text-[#F2EDE4]">₹{r.price}</td>
-                  <td className="px-5 py-4 text-right font-editorial text-[#C21A1A]">₹{r.deposit}</td>
-                  <td className="px-5 py-4 text-center">
-                    {r.featured ? <Star size={14} className="text-[#C21A1A] inline" fill="#C21A1A" /> : <span className="text-[#3A3A3E]">—</span>}
-                  </td>
-                  <td className="px-5 py-4 text-right space-x-3 whitespace-nowrap">
-                    <button onClick={() => setEditing(r)} className="inline-flex items-center gap-1 text-xs text-[#D9D3C6] hover:text-white transition-colors">
-                      <Pencil size={11} /> Edit
-                    </button>
-                    <button onClick={() => remove(r.id)} className="inline-flex items-center gap-1 text-xs text-[#C21A1A] hover:text-[#F0BEBE] transition-colors">
-                      <Trash2 size={11} /> Delete
-                    </button>
-                  </td>
-                </tr>
+              {Object.entries(groupedRows).map(([groupName, services]) => (
+                <Fragment key={groupName}>
+                  <tr className="bg-[#0E0E10] border-t border-[#26262A]">
+                    <td colSpan={7} className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 h-px bg-[#C21A1A]" />
+                        <span className="text-[10px] tracking-[0.24em] uppercase font-medium text-[#D9D3C6]">
+                          {groupName}
+                        </span>
+                        <span className="text-[10px] text-[#6E6A62]">
+                          {services.length} {services.length === 1 ? "service" : "services"}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+
+                  {services.map((r) => (
+                    <tr
+                      key={r.id}
+                      className="border-t border-[#1B1B1E] hover:bg-[#0E0E10] transition-colors"
+                    >
+                      <td className="px-5 py-4 text-[#F2EDE4]">{r.name}</td>
+                      <td className="px-5 py-4 text-[#8C8880]">{r.group}</td>
+                      <td className="px-5 py-4 text-right text-[#D9D3C6]">{r.duration}m</td>
+                      <td className="px-5 py-4 text-right text-[#F2EDE4]">₹{r.price}</td>
+                      <td className="px-5 py-4 text-right font-editorial text-[#C21A1A]">
+                        ₹{r.deposit}
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        {r.featured ? (
+                          <Star
+                            size={14}
+                            className="text-[#C21A1A] inline"
+                            fill="#C21A1A"
+                          />
+                        ) : (
+                          <span className="text-[#3A3A3E]">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-right space-x-3 whitespace-nowrap">
+                        <button
+                          onClick={() => setEditing(r)}
+                          className="inline-flex items-center gap-1 text-xs text-[#D9D3C6] hover:text-white transition-colors"
+                        >
+                          <Pencil size={11} /> Edit
+                        </button>
+                        <button
+                          onClick={() => remove(r.id)}
+                          className="inline-flex items-center gap-1 text-xs text-[#C21A1A] hover:text-[#F0BEBE] transition-colors"
+                        >
+                          <Trash2 size={11} /> Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
